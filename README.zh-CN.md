@@ -17,6 +17,12 @@ Codex 更新后，原本可用的代理设置可能失效。这个 Linux 命令�
 - 把 Codex Doctor 的 HTTPS、WebSocket、app-server 和代理环境检查整理成一份摘要。
 - 备份和恢复代理层，并保留 `codex-proxy-guard` 兼容命令。
 
+## 为什么不直接设置代理变量？
+
+临时执行 `export ALL_PROXY=...`，只管当前 shell。切换节点、重启 app-server 或更新 Codex 后，还要自己确认代理是否真正生效。Codex SOCKS Manager 把多个 SOCKS/HTTP 地址保存为具名 profile。执行 `use` 后，它会重启当前用户下匹配的 app-server，并通过 Doctor 验收；验收失败，就恢复之前的选择。
+
+更新也有单独的恢复路径。`safe-update` 会在 `codex update` 前创建快照，更新后修复受管 launcher、重启 app-server 并验收。更新或验收失败时，它会尝试恢复这份快照。
+
 ## 快速开始
 
 你需要 Linux、Python 3.10+，并且已经安装 Codex CLI。管理器本身只使用 Python 标准库。`check` 和配置切换验收要求 Codex 支持 `doctor --json`；`safe-update` 还要求支持 `codex update`。

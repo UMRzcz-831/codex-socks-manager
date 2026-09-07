@@ -17,6 +17,12 @@ Codex updates can leave a working proxy setup behind. This Linux CLI keeps SOCKS
 - Turn Codex Doctor checks for HTTPS, WebSockets, app-server status, and the proxy environment into one summary.
 - Back up and restore the proxy layer, with `codex-proxy-guard` kept as a compatible command.
 
+## Why not just export a proxy variable?
+
+An `export ALL_PROXY=...` is enough for one shell, but it does not manage endpoint changes, app-server restarts, or Codex updates. Codex SOCKS Manager saves multiple SOCKS and HTTP endpoints as named profiles. `use` selects one, restarts matching app-server roles for the current user, and checks the result with Doctor. If that check fails, it restores the previous selection.
+
+Updates get a recovery path too. `safe-update` creates a snapshot before `codex update`, then repairs the managed launcher, restarts app-server, and validates the result. If the update or validation fails, it attempts to restore the snapshot.
+
 ## Quick start
 
 You need Linux, Python 3.10+, and an existing Codex CLI installation. The manager itself uses only the Python standard library. `check` and profile-switch validation need a Codex version with `doctor --json`; `safe-update` also needs `codex update`.
