@@ -1,23 +1,25 @@
 # Codex SOCKS Manager
 
+![漫画立体字 no more codex 403 冲破终端分镜边框，背景显示 codex-socks 命令](docs/assets/readme-hero.png)
+
 > no more codex 403
 
 [English](README.md) · [简体中文](README.zh-CN.md)
 
-让 Codex CLI 每次启动都使用一致的代理配置，并在更新后恢复代理层。一个 Linux 命令行工具，集中管理 SOCKS/HTTP 配置、注入代理环境变量、诊断 HTTPS 与 WebSocket 连接。slogan 表达的是减少代理相关故障的目标；账号访问、服务地区和远端授权仍有各自要求。
+Codex 更新后，原本可用的代理设置可能失效。这个 Linux 命令行工具集中管理 SOCKS/HTTP 配置，让 Codex 每次启动都带上正确的代理变量，也能排查 HTTPS 和 WebSocket 故障。`no more codex 403` 是目标，不是对所有 403 的保证：账号访问、服务地区、workspace 权限和远端授权仍有各自的限制。
 
 ## 能做什么
 
-- 管理具名 `socks5h://`、`socks5://`、`http://`、`https://` 代理。
-- 为已有 standalone、npm 或 pnpm Codex 安装创建受管 launcher。
-- 注入大小写 `HTTP_PROXY`、`HTTPS_PROXY`、`ALL_PROXY`，在 `NO_PROXY` 中保留本地直连项。
-- 切换配置、重启当前用户的匹配 app-server 角色，验收失败时回滚活动选择。
-- 汇总 Codex Doctor 的 HTTPS、WebSocket、app-server 和代理环境检查。
-- 备份、恢复代理层，保留 `codex-proxy-guard` 兼容命令。
+- 保存具名 `socks5h://`、`socks5://`、`http://`、`https://` 代理配置。
+- 在已有 standalone、npm 或 pnpm Codex 安装前放置受管 launcher。
+- 注入大小写 `HTTP_PROXY`、`HTTPS_PROXY`、`ALL_PROXY`，同时在 `NO_PROXY` 中保留本地直连项。
+- 切换配置、重启当前用户的匹配 app-server 角色；验收失败时恢复之前的选择。
+- 把 Codex Doctor 的 HTTPS、WebSocket、app-server 和代理环境检查整理成一份摘要。
+- 备份和恢复代理层，并保留 `codex-proxy-guard` 兼容命令。
 
 ## 快速开始
 
-需要 Linux、Python 3.10+ 和已安装的 Codex CLI。Python 运行时仅依赖标准库。`check` 与切换验收要求 Codex 支持 `doctor --json`；`safe-update` 要求支持 `codex update`。
+你需要 Linux、Python 3.10+，并且已经安装 Codex CLI。管理器本身只使用 Python 标准库。`check` 和配置切换验收要求 Codex 支持 `doctor --json`；`safe-update` 还要求支持 `codex update`。
 
 ```bash
 git clone https://github.com/UMRzcz-831/codex-socks-manager.git
@@ -34,9 +36,9 @@ codex-socks use office
 codex-socks check
 ```
 
-安装器写入用户本地命令并替换 `~/.local/bin/codex`。如果已有自定义 launcher，请先备份。把 `~/.local/bin` 放在 shell 的 `PATH` 前部。可用 `PYTHON=/path/to/python3 ./scripts/install.sh` 指定解释器。
+安装器会写入用户本地命令，并替换 `~/.local/bin/codex`。如果这个文件是你自己的 launcher，请先备份。把 `~/.local/bin` 放到 shell 的 `PATH` 前部。要选择其他解释器，可运行 `PYTHON=/path/to/python3 ./scripts/install.sh`。
 
-也可以在选定的 Python 环境执行 `python3 -m pip install .`，再运行该环境的 `codex-socks install`。请保留这个环境，生成的 launcher 会使用其中的 Python。
+也可以在准备长期保留的 Python 环境里执行 `python3 -m pip install .`，然后在同一环境运行 `codex-socks install`。生成的 launcher 会继续使用该环境的解释器。
 
 ## 命令速查
 
@@ -56,29 +58,29 @@ codex-socks check
 | `safe-update` | 备份、调用 `codex update`、修复 launcher、重启并验收。 |
 | `migrate-legacy [--jp PATH] [--us PATH]` | 导入旧 JP/US 环境文件，不执行其中的 shell 代码。 |
 
-可通过 `EDITOR=vi codex-socks edit office` 临时指定编辑器。编辑活动配置不会重启已有进程；编辑后执行 `codex-socks use office` 应用并验收。
+用 `EDITOR=vi codex-socks edit office` 可以为单次操作指定编辑器。编辑活动配置不会重启进程；完成后执行 `codex-socks use office`，应用并验收改动。
 
-切换会重启发现的 app-server 角色，可能中断正在使用的 Codex 会话；它不会从零启动一个不存在的 app-server。直连不可用时，`off` 可能验收失败并回滚。
+应用配置时，管理器会重启找到的 app-server 角色，因此可能中断当前 Codex 会话。它不会启动一个原本不存在的 app-server。直连不可用时，`off` 可能无法通过验收并回滚。
 
-无凭据的本地代理可以直接传 URL：
+无凭据的本地代理可以直接传入 URL：
 
 ```bash
 codex-socks add local socks5h://127.0.0.1:1080
 ```
 
-真实凭据请使用隐藏输入。命令行中的 URL 可能进入 shell history 和进程参数。`list` 仅隐藏用户名、密码，仍显示主机和端口，分享前应检查。
+真实凭据应通过隐藏提示输入。命令行里的 URL 可能留在 shell history 或进程参数中。`list` 会隐藏用户名和密码，但仍会显示主机与端口，分享前请检查输出。
 
 ## 不支持的地区：API 列表示例
 
-OpenAI 只发布 [API 支持的国家和地区列表](https://help.openai.com/en/articles/5347006-openai-api-supported-countries-and-territories)，没有独立的不支持清单。按 **2026-09-07** 核对结果，下列地点未出现在该列表中：
+OpenAI 发布了 [API 支持的国家和地区列表](https://help.openai.com/en/articles/5347006-openai-api-supported-countries-and-territories)，但没有单独发布不支持清单。我们在 **2026-09-07** 核对时，以下地点未出现在列表中：
 
 - 中国大陆、香港、澳门、伊朗、朝鲜。
 - 俄罗斯、白俄罗斯。
 - 古巴、委内瑞拉。
 
-以上是依据支持列表整理的非完整示例，不是官方完整黑名单。官方将乌克兰列为支持地区，但注明存在部分例外；最新情况请核对原文。
+这不是官方完整黑名单，只是根据支持列表整理的部分示例。乌克兰列在支持地区中，但附有部分例外。最新表述以原文为准。
 
-该来源说明的是 API 可用范围，不代表所有 Codex 或 ChatGPT 登录方式的完整地区政策。OpenAI 提醒，在支持地区以外访问服务可能导致账号被封禁或暂停。代理配置不会改变服务资格，也不会授予账号或 workspace 权限。
+这个来源只说明 API 的可用范围，不能代表所有 Codex 或 ChatGPT 登录方式的地区政策。OpenAI 提醒，从不支持的地区访问服务可能导致账号被封禁或暂停。代理不会改变服务资格，也不会授予账号或 workspace 权限。
 
 ## 诊断与连接器验收
 
@@ -86,15 +88,15 @@ OpenAI 只发布 [API 支持的国家和地区列表](https://help.openai.com/en
 codex-socks check
 ```
 
-JSON 汇总包含 `https`、`wss`、`app_server`、`proxy_env`，以及总体 `ok` 和 `category`。这些结果来自 Doctor 输出；通过检查不等于另行审计了所有文件权限、子进程环境或连接器业务操作。
+JSON 结果包含 `https`、`wss`、`app_server`、`proxy_env`，以及总体 `ok` 和 `category`。这些字段来自 Doctor 输出。显示为正常，并不代表所有文件权限、子进程环境或连接器操作都经过了审计。
 
-当前 403 分类基于 Doctor 输出中的关键词。`authorization` 和 `proxy_transport` 是诊断线索，并非根因证明。如果代理配置调整后仍无法访问，应检查账号、workspace 权限和远端 ACL。
+403 分类通过 Doctor 输出中的关键词判断。`authorization` 和 `proxy_transport` 是排查线索，不是最终结论。如果修好传输链路后仍无法访问，请检查账号、workspace 权限和远端 ACL。
 
-`codex_apps`/MCP 还需要针对连接器做只读 smoke test：
+使用 `codex_apps`/MCP 时，还应对实际连接器做一次只读 smoke test：
 
 1. 执行 `codex-socks check` 并查看汇总。
 2. 在 Codex 中让已连接的应用读取你有权限访问的内容，例如一个 Issue 标题。
-3. 确认返回预期内容，且没有传输或授权错误。包含敏感信息的原始响应和诊断输出只保留在本机。
+3. 确认返回了预期内容，且没有传输或授权错误。如果原始响应和诊断输出含有敏感信息，只在本机保存。
 
 ## 更新与恢复
 
@@ -106,11 +108,11 @@ codex-socks safe-update
 codex-socks restore
 ```
 
-`safe-update` 为代理层创建快照，调用已配置的真实 Codex 执行更新，重装 launcher、重启 app-server 并运行 Doctor。失败时尝试恢复快照，不复制或降级 Codex 二进制。更新前先运行 `check` 确认基线健康，并留意恢复过程中的错误。
+`safe-update` 先为代理层创建快照，再让已配置的真实 Codex 执行更新，随后重装 launcher、重启 app-server 并运行 Doctor。任何一步失败时，它会尝试恢复快照。这个过程不会复制或降级 Codex 二进制。更新前先运行 `check`，留下正常基线；更新后留意恢复错误。
 
-`restore` 先生成 pre-restore 快照，再恢复管理器设置、profiles 和保存的 launcher，保留当前二进制路径。选定快照中不存在的 profile 会从活动存储中移除，可从 pre-restore 快照找回。`backup` 虽会备份存在的 `~/.codex/config.toml`，但 `restore` 不会自动回写这份 Codex 配置。
+`restore` 会先创建 pre-restore 快照，然后恢复管理器设置、profiles 和保存的 launcher，同时保留当前二进制路径。选定快照里没有的 profile 会离开活动存储，但仍可从 pre-restore 快照找回。`backup` 也会保存已有的 `~/.codex/config.toml`；`restore` 不会自动把这份 Codex 配置写回去。
 
-`codex-proxy-guard` 兼容入口转发相同的 `backup`、`check`、`restore`、`safe-update` 命令。
+`codex-proxy-guard` 是兼容入口，它把 `backup`、`check`、`restore` 和 `safe-update` 转给同一套实现。
 
 ## 本地存储与旧配置迁移
 
@@ -121,7 +123,7 @@ codex-socks restore
 | shell 安装器部署的 Python 包 | `~/.local/share/codex-socks-manager/` |
 | 用户命令、Codex launcher | `~/.local/bin/` |
 
-`XDG_CONFIG_HOME`、`XDG_STATE_HOME` 以及 shell 安装器使用的 `XDG_DATA_HOME` 可覆盖相应根目录。敏感目录使用 `0700`，设置和 profile 文件使用 `0600`。凭据以本地明文保存，快照也需要同等保护。
+`XDG_CONFIG_HOME`、`XDG_STATE_HOME` 和 shell 安装器使用的 `XDG_DATA_HOME` 可以覆盖这些根目录。敏感目录使用 `0700`；设置与 profile 文件使用 `0600`。凭据会以明文留在本机，因此快照也要按原始 profile 的标准保护。
 
 导入旧配置：
 
@@ -132,13 +134,13 @@ codex-socks migrate-legacy \
   --us ~/.config/openai-proxy/us.env
 ```
 
-不传路径时默认使用上述位置。重复导入相同内容安全，已有配置内容不同时拒绝覆盖。迁移不会改变活动选择，准备重启时再通过 `use` 选择导入的配置。
+不传路径时使用上面的默认位置。重复导入相同 profile 是安全的；如果已有同名 profile 但内容不同，命令会拒绝覆盖。迁移不会改变活动选择。准备重启时，再通过 `use` 选择导入的配置。
 
-真实代理 URL、主机信息、凭据、快照、Doctor 输出和日志不得进入公开 Git、Issues 或 CI 日志。仓库提供忽略规则和启发式密钥扫描，提交前也需要检查暂存 diff。
+不要把真实代理 URL、主机信息、凭据、快照、Doctor 输出或运行日志放进公开 Git、Issues 和 CI 日志。仓库提供了忽略规则与启发式密钥扫描，但提交前仍要检查暂存 diff。
 
 ## 参与开发
 
-项目协作约定见 [AGENTS.md](AGENTS.md)，漏洞反馈见 [SECURITY.md](SECURITY.md)。涉及使用方式的修改应同步更新中英文文档。用户要求结构化变更时使用 OpenSpec；纯文档变更可以声明 `skip_specs: true`。
+项目协作约定见 [AGENTS.md](AGENTS.md)，漏洞报告方式见 [SECURITY.md](SECURITY.md)。涉及使用方式的修改要同步更新中英文文档。需要结构化记录时使用 OpenSpec；纯文档变更可以设置 `skip_specs: true`。
 
 在隔离环境安装开发依赖：
 
@@ -148,7 +150,7 @@ python3 -m venv .venv
 git config core.hooksPath .githooks
 ```
 
-按改动范围选择检查：
+按改动内容选择检查：
 
 ```bash
 git diff --check
@@ -160,4 +162,4 @@ openspec validate refresh-readmes-and-agent-guidance --strict
 shellcheck .githooks/pre-commit scripts/install.sh
 ```
 
-采用 MIT 许可证，见 [LICENSE](LICENSE)。
+项目采用 MIT 许可证，见 [LICENSE](LICENSE)。

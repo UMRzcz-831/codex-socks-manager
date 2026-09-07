@@ -1,23 +1,25 @@
 # Codex SOCKS Manager
 
+![Bold three-dimensional comic lettering reading no more codex 403 bursts through terminal panels showing codex-socks commands](docs/assets/readme-hero.png)
+
 > no more codex 403
 
 [English](README.md) · [简体中文](README.zh-CN.md)
 
-Keep Codex CLI proxy settings consistent across launches and recover them after updates. Manage SOCKS and HTTP profiles, inject proxy variables into Codex, and diagnose HTTPS and WebSocket connectivity from one Linux CLI. The slogan describes the goal: reduce proxy-related failures. Account access, service availability, and remote authorization still apply.
+Codex updates can leave a working proxy setup behind. This Linux CLI keeps SOCKS and HTTP profiles in one place, passes them to Codex on every launch, and helps diagnose HTTPS or WebSocket failures. `no more codex 403` is the goal, not a blanket promise: account access, regional availability, workspace permissions, and remote authorization still apply.
 
 ## What it does
 
-- Manage named `socks5h://`, `socks5://`, `http://`, and `https://` profiles.
-- Install a launcher for an existing standalone, npm, or pnpm Codex installation.
-- Set uppercase and lowercase `HTTP_PROXY`, `HTTPS_PROXY`, and `ALL_PROXY`; retain local bypasses in `NO_PROXY`.
-- Switch profiles, restart matching current-user app-server roles, and roll back the active selection if validation fails.
-- Summarize Codex Doctor checks for HTTPS, WebSockets, app-server status, and proxy environment.
-- Back up and restore the proxy layer; retain the `codex-proxy-guard` command.
+- Store named `socks5h://`, `socks5://`, `http://`, and `https://` profiles.
+- Put a managed launcher in front of an existing standalone, npm, or pnpm Codex installation.
+- Export uppercase and lowercase `HTTP_PROXY`, `HTTPS_PROXY`, and `ALL_PROXY` while preserving local bypasses in `NO_PROXY`.
+- Switch profiles, restart matching current-user app-server roles, and restore the previous selection if validation fails.
+- Turn Codex Doctor checks for HTTPS, WebSockets, app-server status, and the proxy environment into one summary.
+- Back up and restore the proxy layer, with `codex-proxy-guard` kept as a compatible command.
 
 ## Quick start
 
-Requires Linux, Python 3.10+, and an existing Codex CLI installation. Runtime Python dependencies are standard-library only. A Codex version providing `doctor --json` is needed for `check` and switch validation; `safe-update` requires `codex update`.
+You need Linux, Python 3.10+, and an existing Codex CLI installation. The manager itself uses only the Python standard library. `check` and profile-switch validation need a Codex version with `doctor --json`; `safe-update` also needs `codex update`.
 
 ```bash
 git clone https://github.com/UMRzcz-831/codex-socks-manager.git
@@ -34,9 +36,9 @@ codex-socks use office
 codex-socks check
 ```
 
-The installer writes user-local commands and replaces `~/.local/bin/codex`. Back up an existing custom launcher before installation. Add `~/.local/bin` early in your shell's `PATH`. To select another interpreter, run `PYTHON=/path/to/python3 ./scripts/install.sh`.
+The installer writes user-local commands and replaces `~/.local/bin/codex`. If that file is a custom launcher, back it up first. Put `~/.local/bin` early in your shell's `PATH`. To choose another interpreter, run `PYTHON=/path/to/python3 ./scripts/install.sh`.
 
-For a pip installation, install this package in your chosen Python environment with `python3 -m pip install .`, then run `codex-socks install` from that environment. Keep the environment available: the generated launcher uses its Python interpreter.
+For a pip installation, run `python3 -m pip install .` in the Python environment you want to keep, then run `codex-socks install` there. The generated launcher continues to use that environment's interpreter.
 
 ## Commands
 
@@ -56,29 +58,29 @@ For a pip installation, install this package in your chosen Python environment w
 | `safe-update` | Back up, invoke `codex update`, repair the launcher, restart, and validate. |
 | `migrate-legacy [--jp PATH] [--us PATH]` | Import old JP/US environment files without sourcing shell code. |
 
-Use `EDITOR=vi codex-socks edit office` to select an editor for one invocation. Editing an active profile does not restart existing processes; run `codex-socks use office` afterward to apply and validate it.
+Set an editor for one invocation with `EDITOR=vi codex-socks edit office`. Editing an active profile does not restart anything; run `codex-socks use office` afterward to apply and validate the change.
 
-Switches can interrupt an active Codex session. They restart discovered app-server roles; they do not bootstrap an absent app-server. `off` can fail and roll back when direct connectivity is unavailable.
+Applying a profile can interrupt an active Codex session because the manager restarts the app-server roles it finds. It will not start an app-server that is absent. If direct connectivity is unavailable, `off` can fail validation and roll back.
 
-For a credential-free local proxy, an explicit URL is convenient:
+Passing the URL directly is convenient for a credential-free local proxy:
 
 ```bash
 codex-socks add local socks5h://127.0.0.1:1080
 ```
 
-Use the hidden prompt for real credentials. A positional URL can appear in shell history and process arguments. List output masks credentials but still shows the host and port; review it before sharing.
+Use the hidden prompt for real credentials. A positional URL can remain in shell history or process arguments. `list` masks the username and password, but it still prints the host and port, so check its output before sharing it.
 
 ## Unsupported regions: API examples
 
-OpenAI publishes a [supported countries and territories list for its API](https://help.openai.com/en/articles/5347006-openai-api-supported-countries-and-territories), rather than a separate unsupported list. As checked on **2026-09-07**, examples absent from that list include:
+OpenAI publishes a [list of countries and territories supported by its API](https://help.openai.com/en/articles/5347006-openai-api-supported-countries-and-territories), but no separate unsupported list. When checked on **2026-09-07**, the following examples were absent:
 
 - Mainland China, Hong Kong, Macao, Iran, North Korea.
 - Russia, Belarus.
 - Cuba, Venezuela.
 
-These are non-exhaustive examples inferred from the published list, not a complete official blacklist. Ukraine is listed with certain exceptions. Check the linked page for current details.
+This is not a complete official blacklist; it is a short set of examples inferred from the published list. Ukraine appears on the list with certain exceptions. Check the linked page for the latest wording.
 
-This source covers API availability, not every Codex or ChatGPT sign-in arrangement. OpenAI states that access outside supported locations may lead to an account block or suspension. Proxy configuration does not change service eligibility or grant account/workspace permissions.
+The source covers API availability, not every Codex or ChatGPT sign-in arrangement. OpenAI says access from unsupported locations may lead to an account block or suspension. A proxy does not change service eligibility or grant account or workspace permissions.
 
 ## Diagnostics and connectors
 
@@ -86,15 +88,15 @@ This source covers API availability, not every Codex or ChatGPT sign-in arrangem
 codex-socks check
 ```
 
-The JSON summary reports `https`, `wss`, `app_server`, and `proxy_env`, plus an overall `ok` and a `category`. The tool derives these from Doctor output; a green result is not a separate audit of every file permission, child-process environment, or connector operation.
+The JSON response contains `https`, `wss`, `app_server`, and `proxy_env`, along with the overall `ok` value and a `category`. These fields come from Doctor output. A green result does not audit every file permission, child-process environment, or connector operation.
 
-The current 403 classification uses keywords in Doctor output. Treat `authorization` and `proxy_transport` as diagnostic hints, not proof of the root cause. Check account/workspace permissions and remote ACLs when transport configuration alone does not resolve access.
+The 403 classification looks for keywords in Doctor output. Categories such as `authorization` and `proxy_transport` are clues, not a verdict. If fixing the transport does not restore access, check the account, workspace permissions, and remote ACLs.
 
-For `codex_apps`/MCP, finish with a connector-specific read-only smoke test:
+For `codex_apps`/MCP, finish with a read-only smoke test for the connector you use:
 
 1. Run `codex-socks check` and inspect the summary.
 2. In Codex, ask an already connected app to read an item you are authorized to access, such as an issue title.
-3. Confirm the expected result arrives without a transport or authorization error. Keep raw responses and diagnostics private if they contain sensitive information.
+3. Confirm that the expected result arrives without a transport or authorization error. Keep raw responses and diagnostics private when they contain sensitive information.
 
 ## Updates and recovery
 
@@ -106,11 +108,11 @@ codex-socks safe-update
 codex-socks restore
 ```
 
-`safe-update` snapshots the proxy layer, invokes the configured real Codex executable's update command, reinstalls the launcher, restarts app-server roles, and runs Doctor. On failure it attempts to restore the snapshot. It does not copy or downgrade Codex binaries. Run `check` before updating to establish a healthy baseline, and inspect any recovery errors.
+`safe-update` snapshots the proxy layer, asks the configured real Codex executable to update, reinstalls the launcher, restarts app-server roles, and runs Doctor. If a step fails, it tries to restore the snapshot. It never copies or downgrades Codex binaries. Run `check` before the update so you have a healthy baseline, then review any recovery errors.
 
-`restore` creates a pre-restore snapshot and restores manager settings, profiles, and the saved launcher while retaining the current binary path. Profiles absent from the selected snapshot are removed from active storage and remain recoverable from the pre-restore snapshot. Although `backup` also saves `~/.codex/config.toml` when present, `restore` does not automatically write that Codex configuration back.
+`restore` first creates a pre-restore snapshot. It then restores the manager settings, profiles, and saved launcher while keeping the current binary path. Profiles missing from the chosen snapshot leave active storage but remain available in the pre-restore snapshot. `backup` also saves `~/.codex/config.toml` when it exists; `restore` does not write that Codex configuration back automatically.
 
-The `codex-proxy-guard` entry point forwards the same `backup`, `check`, `restore`, and `safe-update` commands.
+The `codex-proxy-guard` compatibility entry point forwards `backup`, `check`, `restore`, and `safe-update` to the same implementation.
 
 ## Local storage and legacy migration
 
@@ -121,7 +123,7 @@ The `codex-proxy-guard` entry point forwards the same `backup`, `check`, `restor
 | Package installed by the shell installer | `~/.local/share/codex-socks-manager/` |
 | User commands and Codex launcher | `~/.local/bin/` |
 
-`XDG_CONFIG_HOME`, `XDG_STATE_HOME`, and the shell installer's `XDG_DATA_HOME` override the corresponding roots. Sensitive directories use `0700`, and settings/profile files use `0600`. Credentials are stored as local plaintext; protect snapshots as carefully as the original profiles.
+`XDG_CONFIG_HOME`, `XDG_STATE_HOME`, and the shell installer's `XDG_DATA_HOME` override these roots. Sensitive directories use `0700`; settings and profile files use `0600`. Credentials remain plaintext on your machine, so protect snapshots as carefully as the original profiles.
 
 To import an older setup:
 
@@ -132,13 +134,13 @@ codex-socks migrate-legacy \
   --us ~/.config/openai-proxy/us.env
 ```
 
-Omitting both paths uses those legacy locations. Re-importing identical profiles is safe; different existing content is rejected. Migration does not change the active selection: choose the imported profile with `use` when ready to restart.
+Omit both paths to use those legacy locations. Importing an identical profile again is safe; the command rejects an existing profile with different content. Migration leaves the active selection alone. Choose the imported profile with `use` when you are ready to restart.
 
-Real proxy URLs, host details, credentials, snapshots, Doctor output, and runtime logs must stay out of public Git, Issues, and CI logs. The repository provides ignore rules and a heuristic secret scanner; review the staged diff as well.
+Never put real proxy URLs, host details, credentials, snapshots, Doctor output, or runtime logs in public Git, Issues, or CI logs. The repository has ignore rules and a heuristic secret scanner, but you still need to review the staged diff.
 
 ## Contributing
 
-See [AGENTS.md](AGENTS.md) for task-specific guidance and [SECURITY.md](SECURITY.md) for reporting vulnerabilities. Keep English and Chinese usage instructions aligned. Use OpenSpec for requested structured changes; documentation-only changes can declare `skip_specs: true`.
+See [AGENTS.md](AGENTS.md) for project-specific working guidance and [SECURITY.md](SECURITY.md) for vulnerability reports. Keep the English and Chinese usage instructions aligned. Use OpenSpec when a structured change is requested; documentation-only changes can set `skip_specs: true`.
 
 Install development dependencies in an isolated environment:
 
@@ -148,7 +150,7 @@ python3 -m venv .venv
 git config core.hooksPath .githooks
 ```
 
-Choose checks appropriate to the change:
+Run the checks that match your change:
 
 ```bash
 git diff --check
@@ -160,4 +162,4 @@ openspec validate refresh-readmes-and-agent-guidance --strict
 shellcheck .githooks/pre-commit scripts/install.sh
 ```
 
-MIT licensed. See [LICENSE](LICENSE).
+Licensed under MIT. See [LICENSE](LICENSE).
