@@ -85,7 +85,7 @@ def install_launcher(paths: Paths, install: CodexInstall | None = None) -> Setti
             selected = CodexInstall(standalone.resolve(), "standalone")
     if selected is None and current.real_codex:
         candidate = Path(current.real_codex)
-        if candidate.exists() and candidate.resolve() != paths.launcher.resolve(strict=False):
+        if candidate.exists() and candidate.absolute() != paths.launcher.absolute():
             selected = CodexInstall(candidate.resolve(), current.install_source or _source_for(candidate))
     if selected is None:
         selected = discover_codex(paths)
