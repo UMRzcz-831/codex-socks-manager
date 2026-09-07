@@ -25,4 +25,4 @@
 
 - [x] 5.1 运行 pytest、compile、ShellCheck、OpenSpec strict validate 与密钥扫描，所有检查必须通过
 - [x] 5.2 在当前 VPS 创建私密备份、安装工具、迁移 JP/US 配置并运行 check，验证 HTTPS ok、WSS 101 和 app-server 代理环境
-- [ ] 5.3 初始化并提交 main 分支，创建公开 GitHub 仓库、Issues、Projects 看板和 v0.1.0 Release，并核对远程仓库不含凭据
+- [x] 5.3 初始化并提交 main 分支，创建公开 GitHub 仓库、Issues、Projects 看板和 v0.1.0 Release，并核对远程仓库不含凭据
