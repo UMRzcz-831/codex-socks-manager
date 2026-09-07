@@ -1,0 +1,25 @@
+__pycache__/
+.agents/
+*.py[cod]
+.pytest_cache/
+.coverage
+build/
+dist/
+*.egg-info/
+.venv/
+venv/
+
+# Never commit local proxy credentials, snapshots, diagnostics or logs.
+profiles/
+*.conf
+*.env
+.env*
+*proxy*.yaml
+*proxy*.yml
+*proxy*.json
+*proxy*.toml
+backups/
+snapshots/
+doctor*.json
+*.log
+local-state/
