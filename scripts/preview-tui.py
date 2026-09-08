@@ -37,6 +37,7 @@ def export(app: ManagerApp, target: Path, font: Path | None) -> None:
         if value and "textLength" in text.attrib:
             text.set("textLength", str(float(text.get("textLength")) * cell_len(value) / len(value)))
     svg = ET.tostring(root, encoding="unicode")
+    svg = "\n".join(line.rstrip() for line in svg.splitlines()) + "\n"
     target.with_suffix(".svg").write_text(svg, encoding="utf-8")
     if font:
         import resvg_py
