@@ -75,8 +75,8 @@ def discover_codex(paths: Paths, env: dict[str, str] | None = None) -> CodexInst
     raise FileNotFoundError("unable to find a non-managed Codex executable")
 
 
-def install_launcher(paths: Paths, install: CodexInstall | None = None) -> Settings:
-    initialize(paths)
+def select_install(paths: Paths, install: CodexInstall | None = None) -> CodexInstall:
+    """Resolve an installation without writing configuration or the launcher."""
     current = Settings.load(paths.settings)
     selected = install
     if selected is None:
@@ -89,6 +89,13 @@ def install_launcher(paths: Paths, install: CodexInstall | None = None) -> Setti
             selected = CodexInstall(candidate.resolve(), current.install_source or _source_for(candidate))
     if selected is None:
         selected = discover_codex(paths)
+    return selected
+
+
+def install_launcher(paths: Paths, install: CodexInstall | None = None) -> Settings:
+    selected = select_install(paths, install)
+    initialize(paths)
+    current = Settings.load(paths.settings)
     current.real_codex = str(selected.executable)
     current.install_source = selected.source
     current.manager_python = sys.executable

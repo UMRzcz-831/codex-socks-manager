@@ -120,11 +120,11 @@ def test_switch_failure_rolls_back_profile_and_roles(manager_paths, monkeypatch)
         def poll(self):
             return None
 
-    monkeypatch.setattr("codex_socks_manager.cli.discover_appservers", lambda paths: next(discoveries))
-    monkeypatch.setattr("codex_socks_manager.cli.stop_processes", lambda roles: None)
-    monkeypatch.setattr("codex_socks_manager.cli.start_processes", lambda paths, roles: started.append(roles) or [Process()])
+    monkeypatch.setattr("codex_socks_manager.operations.discover_appservers", lambda paths: next(discoveries))
+    monkeypatch.setattr("codex_socks_manager.operations.stop_processes", lambda roles: None)
+    monkeypatch.setattr("codex_socks_manager.operations.start_processes", lambda paths, roles: started.append(roles) or [Process()])
     monkeypatch.setattr(
-        "codex_socks_manager.cli.check",
+        "codex_socks_manager.operations.check",
         lambda paths: type("Result", (), {"ok": False, "category": "proxy_transport"})(),
     )
     with pytest.raises(RuntimeError):

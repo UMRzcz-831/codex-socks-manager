@@ -13,6 +13,7 @@ from pathlib import Path
 from .appserver import restart_appservers
 from .doctor import check
 from .paths import Paths
+from .progress import Progress, emit
 from .runtime import install_launcher
 from .storage import Settings, atomic_write, exclusive_lock, secure_dir
 
@@ -95,10 +96,12 @@ def latest_snapshot(paths: Paths, label: str | None = None) -> Path:
     return candidates[0]
 
 
-def restore(paths: Paths, snapshot: Path | None = None, restart: bool = True) -> Path:
+def restore(paths: Paths, snapshot: Path | None = None, restart: bool = True, progress: Progress | None = None) -> Path:
     selected = snapshot or latest_snapshot(paths, "known-good")
     manifest = verify_snapshot(selected)
+    emit(progress, "snapshot")
     backup(paths, "pre-restore")
+    emit(progress, "restoring")
     current = Settings.load(paths.settings)
     with exclusive_lock(paths.lock):
         source_settings = selected / "manager/config.toml"
@@ -124,25 +127,37 @@ def restore(paths: Paths, snapshot: Path | None = None, restart: bool = True) ->
         else:
             install_launcher(paths)
     if restart:
+        emit(progress, "restarting")
         restart_appservers(paths)
     return selected
 
 
-def safe_update(paths: Paths, restart: bool = True) -> None:
+def safe_update(paths: Paths, restart: bool = True, progress: Progress | None = None) -> None:
+    emit(progress, "snapshot")
     snapshot = backup(paths, "known-good")
     settings = Settings.load(paths.settings)
     if not settings.real_codex:
         raise RuntimeError("Codex executable is not configured")
     try:
+        emit(progress, "updating")
         completed = subprocess.run([settings.real_codex, "update"], text=True, capture_output=True, timeout=600, check=False)
         if completed.returncode != 0:
             raise RuntimeError("official codex update failed")
+        emit(progress, "launcher")
         install_launcher(paths)
         if restart:
+            emit(progress, "restarting")
             restart_appservers(paths)
+        emit(progress, "validating")
         result = check(paths)
         if not result.ok:
             raise RuntimeError(f"post-update validation failed: {result.category}")
-    except Exception:
-        restore(paths, snapshot.path, restart=restart)
+    except Exception as error:
+        emit(progress, "rollback")
+        try:
+            restore(paths, snapshot.path, restart=restart, progress=progress)
+        except Exception as recovery_error:
+            emit(progress, "rollback_failed")
+            raise RuntimeError(f"{error}; rollback failed: {recovery_error}") from error
+        emit(progress, "rolled_back")
         raise

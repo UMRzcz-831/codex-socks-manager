@@ -1,0 +1,79 @@
+Screen { background: $g-background; color: $g-text; }
+* { scrollbar-color: $g-border; scrollbar-background: $g-background; scrollbar-color-hover: $g-accent; scrollbar-color-active: $g-accent; }
+#masthead { height: 2; padding: 0 1; color: $g-text; }
+#size-warning { display: none; height: 1; color: $g-warning; }
+.undersized #size-warning { display: block; }
+#pages { height: 1fr; }
+TabPane { padding: 0 1; }
+Tabs { background: $g-background; height: 3; }
+Tab { color: $g-muted; }
+Tab.-active { color: $g-accent; text-style: bold underline; }
+Underline > .underline--bar { color: $g-accent; }
+.panel, #profiles {
+    border: solid $g-border;
+    border-title-color: $g-text;
+    border-title-style: bold;
+    background: $g-surface;
+    padding: 0 1;
+}
+.panel:focus-within, #profiles:focus { border: solid $g-accent; }
+#profile-layout, .split { layout: horizontal; height: 1fr; }
+#profiles, .primary-pane { width: 65%; height: 1fr; min-width: 48; }
+#profile-side, .detail-pane { width: 1fr; height: 1fr; min-width: 28; margin-left: 1; }
+#profile-detail { height: auto; margin-bottom: 1; }
+.compact #profile-layout, .compact .split { layout: vertical; }
+.compact #profiles { width: 1fr; height: 8; min-width: 0; }
+.compact #profile-side, .compact .detail-pane {
+    width: 1fr; height: auto; min-width: 0; margin: 1 0 0 0;
+}
+.compact #profile-detail { margin-bottom: 0; }
+.compact #profile-side .buttons { margin-top: 0; }
+.compact .primary-pane { width: 1fr; height: auto; min-width: 0; }
+DataTable { background: $g-surface; color: $g-text; }
+DataTable > .datatable--header { background: $g-surface; color: $g-text; text-style: bold; }
+DataTable > .datatable--cursor { background: $g-selection; color: $g-text; text-style: bold; }
+DataTable > .datatable--hover { background: $g-selection; color: $g-text; }
+.buttons { height: 1; margin-top: 1; }
+Button {
+    height: 1; min-width: 8; width: auto; padding: 0 1;
+    margin-right: 1; border: none; background: $g-surface; color: $g-text;
+}
+Button.-primary { background: $g-surface; color: $g-accent; }
+Button.-warning { background: $g-surface; color: $g-warning; }
+Button:hover, Button:focus { background: $g-selection; color: $g-text; text-style: bold reverse; border: none; }
+Button:disabled { opacity: 1; color: $g-muted; text-opacity: 100%; }
+#diagnostics, #diagnostic-note, #maintenance-note { height: auto; margin-bottom: 1; }
+#diagnostic-note, #maintenance-note { color: $g-muted; }
+#diagnostic-main, #diagnostic-side { padding: 1; }
+#maintenance-layout { height: 1fr; }
+.maintenance-group { height: auto; margin-bottom: 1; }
+.section-title { height: 1; text-style: bold; color: $g-text; }
+.group-hint { height: auto; color: $g-muted; }
+#command-filter { margin: 0; }
+#commands { height: 1fr; }
+.compact #commands { height: 8; }
+#command-detail { height: auto; }
+Detail:focus { text-style: none; }
+#status { height: 1; padding: 0 1; background: $g-surface; }
+#keys { height: 1; padding: 0 1; color: $g-muted; background: $g-background; }
+ModalScreen { align: center middle; background: $g-background 85%; }
+.dialog {
+    width: 70%; min-width: 48; max-width: 95%; height: auto; max-height: 95%;
+    padding: 1 2; border: solid $g-accent; background: $g-surface;
+}
+.dialog-title { color: $g-text; text-style: bold; margin-bottom: 1; }
+.dialog Label { margin-top: 0; height: auto; }
+.dialog Input, .dialog Select { width: 1fr; }
+Input { border: solid $g-border; background: $g-background; color: $g-text; }
+Input:focus { border: solid $g-accent; }
+Input:disabled { opacity: 1; color: $g-muted; }
+Input > .input--placeholder { color: $g-muted; }
+Select > SelectCurrent, Select > SelectOverlay {
+    border: solid $g-border; background: $g-surface; color: $g-text;
+}
+Select:focus > SelectCurrent { border: solid $g-accent; }
+SelectCurrent > Static { color: $g-muted; }
+SelectOverlay > .option-list--option-highlighted { background: $g-selection; color: $g-text; text-style: bold reverse; }
+Checkbox { height: 1; border: none; margin: 1 0; background: $g-surface; }
+Checkbox:focus { text-style: reverse; }
+#form-error { color: $g-error; height: auto; }

@@ -8,6 +8,11 @@ import pytest
 from codex_socks_manager.paths import Paths
 
 
+# An explicit CLI job must not import UI tests at collection time. The full job
+# does not ignore them, so missing UI dependencies fail rather than silently skip.
+collect_ignore = ["test_tui.py", "test_ui_theme.py"] if os.environ.get("CODEX_SOCKS_TEST_EDITION") == "cli" else []
+
+
 @pytest.fixture
 def manager_paths(tmp_path: Path) -> Paths:
     home = tmp_path / "home"
@@ -20,4 +25,3 @@ def manager_paths(tmp_path: Path) -> Paths:
             "PATH": os.environ.get("PATH", ""),
         }
     )
-

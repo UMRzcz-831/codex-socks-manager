@@ -2,169 +2,152 @@ from __future__ import annotations
 
 import argparse
 import getpass
+import io
+import importlib.util
 import json
 import os
-import shlex
 import subprocess
 import sys
-import tempfile
 from pathlib import Path
 
-from .appserver import discover_appservers, start_processes, stop_processes
-from .doctor import check
-from .migration import migrate_legacy
+from .catalog import COMMANDS, language, translated
+from .operations import Manager, edit_in_editor as _edit, switch as _switch
 from .paths import Paths
-from .profiles import ProfileStore, validate_url
-from .recovery import backup, restore, safe_update
-from .runtime import install_launcher
-from .storage import Settings
+from .presentation import print_help, print_profiles, safe_error
 
 
-def parser() -> argparse.ArgumentParser:
-    root = argparse.ArgumentParser(prog="codex-socks", description="Manage Codex CLI proxy profiles safely")
-    commands = root.add_subparsers(dest="command", required=True)
-    add = commands.add_parser("add")
-    add.add_argument("name")
-    add.add_argument("url", nargs="?")
-    use = commands.add_parser("use")
-    use.add_argument("name")
-    use.add_argument("--no-restart", action="store_true", help=argparse.SUPPRESS)
-    listing = commands.add_parser("list")
-    listing.add_argument("--json", action="store_true")
-    edit = commands.add_parser("edit")
-    edit.add_argument("name")
-    delete = commands.add_parser("del")
-    delete.add_argument("name")
-    delete.add_argument("--force", action="store_true")
-    off = commands.add_parser("off")
-    off.add_argument("--no-restart", action="store_true", help=argparse.SUPPRESS)
-    commands.add_parser("check")
-    commands.add_parser("install")
-    commands.add_parser("backup")
-    restore_parser = commands.add_parser("restore")
-    restore_parser.add_argument("snapshot", nargs="?", type=Path)
-    commands.add_parser("safe-update")
-    migration = commands.add_parser("migrate-legacy")
-    migration.add_argument("--jp", type=Path)
-    migration.add_argument("--us", type=Path)
+class HelpParser(argparse.ArgumentParser):
+    def __init__(self, *args, lang: str = "en", command: str | None = None, **kwargs):
+        self.lang = lang
+        self.command_name = command
+        super().__init__(*args, **kwargs)
+
+    def print_help(self, file=None) -> None:
+        print_help(self.lang, self.command_name, file)
+
+    def format_help(self) -> str:
+        output = io.StringIO()
+        self.print_help(output)
+        return output.getvalue()
+
+
+def parser(lang: str | None = None) -> argparse.ArgumentParser:
+    lang = language(lang)
+    root = HelpParser(prog="codex-socks", lang=lang, allow_abbrev=False)
+    root.add_argument("--lang", choices=("zh-CN", "en"), default=argparse.SUPPRESS)
+    commands = root.add_subparsers(dest="command")
+    for entry in COMMANDS:
+        sub = commands.add_parser(entry.name, lang=lang, command=entry.name, allow_abbrev=False,
+                                  help=entry.text("summary", lang))
+        sub.add_argument("--lang", choices=("zh-CN", "en"), default=argparse.SUPPRESS)
+        for name, en, zh in entry.parameters:
+            kwargs: dict = {"help": translated(lang, en, zh)}
+            if name in {"--json", "--force"}:
+                kwargs["action"] = "store_true"
+            elif name in {"--jp", "--us", "snapshot"}:
+                kwargs["type"] = Path
+            if name in {"url", "snapshot"}:
+                kwargs["nargs"] = "?"
+            sub.add_argument(name, **kwargs)
+        if entry.name in {"use", "off"}:
+            sub.add_argument("--no-restart", action="store_true", help=argparse.SUPPRESS)
     return root
 
 
-def _switch(paths: Paths, name: str, restart: bool) -> None:
-    store = ProfileStore(paths)
-    previous = Settings.load(paths.settings).active
-    roles = discover_appservers(paths) if restart else []
-    if restart and not roles:
-        raise RuntimeError("no matching current-user Codex app-server process found")
-    try:
-        store.set_active(name)
-        if restart:
-            stop_processes(roles)
-            started = start_processes(paths, roles)
-            if any(process.poll() is not None for process in started):
-                raise RuntimeError("one or more Codex app-server roles failed to start")
-            result = check(paths)
-            if not result.ok:
-                raise RuntimeError(f"validation failed: {result.category}")
-    except Exception:
-        store.set_active(previous)
-        if restart and roles:
-            current = discover_appservers(paths)
-            if current:
-                stop_processes(current)
-            start_processes(paths, roles)
-        raise
+def interactive() -> bool:
+    return sys.stdin.isatty() and sys.stdout.isatty() and os.environ.get("TERM") != "dumb"
 
 
-def _edit(paths: Paths, name: str) -> None:
-    store = ProfileStore(paths)
-    current = store.get(name)
-    editor = os.environ.get("EDITOR")
-    if not editor:
-        raise RuntimeError("EDITOR is not set")
-    descriptor, filename = tempfile.mkstemp(prefix=f"codex-socks-{name}-")
-    temporary = Path(filename)
-    try:
-        os.fchmod(descriptor, 0o600)
-        with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
-            handle.write(current + "\n")
-        completed = subprocess.run([*shlex.split(editor), str(temporary)], check=False)
-        if completed.returncode != 0:
-            raise RuntimeError("editor exited unsuccessfully")
-        replacement = validate_url(temporary.read_text(encoding="utf-8").strip())
-        store.add(name, replacement, replace=True)
-    finally:
-        temporary.unlink(missing_ok=True)
+def tui_available() -> bool:
+    return all(importlib.util.find_spec(name) is not None for name in ("textual", "rich"))
+
+
+def load_tui():
+    from .tui import ManagerApp
+    return ManagerApp
+
+
+def argument_language(argv: list[str]) -> str:
+    probe = argparse.ArgumentParser(add_help=False, allow_abbrev=False)
+    probe.add_argument("--lang", choices=("zh-CN", "en"))
+    selected, _ = probe.parse_known_args(argv)
+    return language(selected.lang)
 
 
 def run(argv: list[str] | None = None, paths: Paths | None = None) -> int:
-    args = parser().parse_args(argv)
-    paths = paths or Paths.discover()
-    store = ProfileStore(paths)
-    if args.command == "add":
-        url = args.url or getpass.getpass("Proxy URL: ")
-        store.add(args.name, url)
-        print(f"added profile {args.name}")
-    elif args.command == "list":
-        profiles = store.list()
+    argv = sys.argv[1:] if argv is None else argv
+    lang = argument_language(argv)
+    root = parser(lang)
+    args = root.parse_args(argv)
+    t = lambda en, zh: translated(lang, en, zh)
+    if args.command is None and not interactive():
+        root.print_help()
+        return 0
+    if args.command in {None, "tui"}:
+        if not interactive():
+            print(t("error: tui requires an interactive terminal; use --help or list --json.",
+                    "错误：tui 需要交互终端；请使用 --help 或 list --json。"), file=sys.stderr)
+            return 2
+        if not tui_available():
+            if args.command is None:
+                root.print_help()
+                return 0
+            print(t("error: TUI is optional. From the project directory run ./scripts/install.sh --with-tui; "
+                    "for pip use the same Python environment: python -m pip install '.[tui]'.",
+                    "错误：TUI 为选装功能。在项目目录执行 ./scripts/install.sh --with-tui；"
+                    "pip 安装请在同一 Python 环境执行 python -m pip install '.[tui]'。"), file=sys.stderr)
+            return 2
+        try:
+            ManagerApp = load_tui()
+        except ImportError as error:
+            print(t("error: TUI installation is damaged; reinstall with --with-tui. ",
+                    "错误：TUI 安装损坏，请用 --with-tui 重新安装。") + safe_error(error), file=sys.stderr)
+            return 2
+        ManagerApp(paths or Paths.discover(), lang=lang).run()
+        return 0
+    manager = Manager(paths or Paths.discover())
+    if args.command == "list":
+        profiles = manager.store.list()
         if args.json:
-            print(json.dumps({"active": Settings.load(paths.settings).active, "profiles": profiles}, indent=2))
-        elif not profiles:
-            print("no profiles")
+            print(json.dumps({"active": manager.active, "profiles": profiles}, indent=2))
         else:
-            for item in profiles:
-                marker = "*" if item["active"] else " "
-                print(f"{marker} {item['name']:<16} {item['scheme']:<8} {item['url']}")
-    elif args.command in {"use", "off"}:
-        name = args.name if args.command == "use" else "off"
-        _switch(paths, name, not args.no_restart)
-        print(f"active profile: {name}")
-    elif args.command == "edit":
-        _edit(paths, args.name)
-        print(f"updated profile {args.name}")
-    elif args.command == "del":
-        active = Settings.load(paths.settings).active
-        if active == args.name and args.force:
-            _switch(paths, "off", True)
-            store.delete(args.name)
-            print("active profile switched to off")
-        else:
-            store.delete(args.name, False)
-        print(f"deleted profile {args.name}")
-    elif args.command == "install":
-        settings = install_launcher(paths)
-        print(f"installed launcher for {settings.install_source} Codex")
-    elif args.command == "check":
-        result = check(paths)
+            print_profiles(profiles, lang)
+        return 0
+    kwargs = {key: value for key, value in vars(args).items()
+              if key in {"name", "url", "force", "snapshot", "jp", "us"}}
+    if args.command == "add":
+        kwargs["url"] = args.url or getpass.getpass(t("Proxy URL: ", "代理 URL："))
+    kwargs["restart"] = not getattr(args, "no_restart", False)
+    deleted_active = args.command == "del" and manager.active == args.name
+    result = manager.execute(args.command, **kwargs)
+    if args.command == "check":
         print(json.dumps(result.to_dict(), indent=2))
         return 0 if result.ok else 1
-    elif args.command == "backup":
-        snapshot = backup(paths, "known-good", Path.home() / ".codex/config.toml")
-        print(snapshot.path)
-    elif args.command == "restore":
-        print(restore(paths, args.snapshot))
-    elif args.command == "safe-update":
-        safe_update(paths)
-        print("Codex update and proxy validation completed")
+    if args.command in {"backup", "restore"}:
+        print(result)
     elif args.command == "migrate-legacy":
-        sources = {}
-        if args.jp:
-            sources["jp"] = args.jp
-        if args.us:
-            sources["us"] = args.us
-        if not sources:
-            base = Path.home() / ".config/openai-proxy"
-            sources = {"jp": base / "jp.env", "us": base / "us.env"}
-        migrated = migrate_legacy(paths, sources)
-        print("migrated: " + (", ".join(migrated) if migrated else "none (already current or absent)"))
+        print(t("migrated: ", "已导入：") + (", ".join(result) if result else t("none (already current or absent)", "无（已存在或源文件缺失）")))
+    elif args.command == "install":
+        print(t(f"installed launcher for {result.install_source} Codex", f"已为 {result.install_source} Codex 安装 launcher"))
+    elif args.command in {"use", "off"}:
+        print(t("active profile: ", "活动配置：") + manager.active)
+    elif args.command == "safe-update":
+        print(t("Codex update and proxy validation completed", "Codex 更新及代理验收完成"))
+    else:
+        if deleted_active:
+            print(t("active profile switched to off", "活动配置已切换为 off"))
+        label = {"add": ("added profile ", "已新增配置："), "edit": ("updated profile ", "已更新配置："),
+                 "del": ("deleted profile ", "已删除配置：")}[args.command]
+        print(t(*label) + args.name)
     return 0
 
 
 def main() -> None:
     try:
         raise SystemExit(run())
-    except (ValueError, FileNotFoundError, FileExistsError, PermissionError, RuntimeError) as error:
-        print(f"error: {error}", file=sys.stderr)
+    except (ValueError, OSError, RuntimeError, subprocess.SubprocessError) as error:
+        prefix = translated(argument_language(sys.argv[1:]), "error", "错误")
+        print(f"{prefix}: {safe_error(error)}", file=sys.stderr)
         raise SystemExit(2) from error
 
 
