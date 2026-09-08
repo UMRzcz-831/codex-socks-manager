@@ -4,7 +4,7 @@ Applies to this repository and its descendants. Keep instructions task-specific;
 
 ## Scope and completion
 
-This is a Linux CLI with Python 3.10+ and no third-party runtime Python dependencies. It manages proxy profiles, the Codex launcher, and update recovery. Other repositories and VPS services are outside its scope unless the user includes them.
+This is a Linux CLI with an optional Textual TUI, using Python 3.10+. The default CLI and Codex execution path use only the standard library. Textual and Rich are installed through the `tui` extra or installer `--with-tui`. It manages proxy profiles, the Codex launcher, and update recovery. Other repositories and VPS services are outside its scope unless the user includes them.
 
 Inspect `git status --short --branch` and the relevant diff; preserve unrelated work. Read the files needed for the task. Continue through implementation, relevant verification, and fixes within the authorized scope. Ask only when a missing decision or new authority prevents correct completion; do not ask again for authorization already given.
 
@@ -17,9 +17,14 @@ Done means the requested result is present, applicable checks pass, and remainin
 | Area | Starting points |
 | --- | --- |
 | Commands and usage | [cli.py](src/codex_socks_manager/cli.py), [README.md](README.md), [中文 README](README.zh-CN.md) |
+| TUI, help, shared operations | [tui.py](src/codex_socks_manager/tui.py), [catalog.py](src/codex_socks_manager/catalog.py), [operations.py](src/codex_socks_manager/operations.py) |
 | Profile validation and persistence | [profiles.py](src/codex_socks_manager/profiles.py), [storage.py](src/codex_socks_manager/storage.py), [paths.py](src/codex_socks_manager/paths.py) |
 | Launcher, process lifecycle, diagnosis | [runtime.py](src/codex_socks_manager/runtime.py), [appserver.py](src/codex_socks_manager/appserver.py), [doctor.py](src/codex_socks_manager/doctor.py) |
 | Install, recovery, migration | [install.sh](scripts/install.sh), [recovery.py](src/codex_socks_manager/recovery.py), [migration.py](src/codex_socks_manager/migration.py) |
+
+The shell installer uses versioned private virtual environments. Check packaging of TUI resources and failure preservation when changing [bootstrap.py](src/codex_socks_manager/bootstrap.py). TUI tests use Textual Pilot with temporary XDG paths and fake operations; never load real profiles for screenshots.
+
+Install `.[test,tui]` for full development tests. Also test `.[test]` in a separate environment without Textual/Rich, using `CODEX_SOCKS_TEST_EDITION=cli`; this explicitly excludes UI-only tests. Full CI uses `CODEX_SOCKS_TEST_EDITION=tui` and must not skip them. The installer defaults to CLI on every run; retaining TUI during upgrades requires `--with-tui`.
 
 Use matching files under `tests/` for code changes. Select skills for the actual workflow or when explicitly requested; keep skill routing concise and read supporting material as needed.
 

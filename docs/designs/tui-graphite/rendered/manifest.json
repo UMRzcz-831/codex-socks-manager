@@ -1,0 +1,38 @@
+[
+  {
+    "size": [
+      80,
+      24
+    ],
+    "language": "en",
+    "operations": "disabled",
+    "profile_width_ratio": null
+  },
+  {
+    "size": [
+      80,
+      24
+    ],
+    "language": "zh-CN",
+    "operations": "disabled",
+    "profile_width_ratio": null
+  },
+  {
+    "size": [
+      120,
+      36
+    ],
+    "language": "en",
+    "operations": "disabled",
+    "profile_width_ratio": 0.6495726495726496
+  },
+  {
+    "size": [
+      120,
+      36
+    ],
+    "language": "zh-CN",
+    "operations": "disabled",
+    "profile_width_ratio": 0.6495726495726496
+  }
+]

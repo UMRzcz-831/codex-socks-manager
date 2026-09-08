@@ -25,7 +25,7 @@ Updates get a recovery path too. `safe-update` creates a snapshot before `codex 
 
 ## Quick start
 
-You need Linux, Python 3.10+, and an existing Codex CLI installation. The manager itself uses only the Python standard library. `check` and profile-switch validation need a Codex version with `doctor --json`; `safe-update` also needs `codex update`.
+You need Linux, Python 3.10+ with venv/pip support, and an existing Codex CLI installation. The default CLI has no third-party runtime dependencies. Textual and Rich are optional, for the TUI only; CLI tables use the standard library in both editions. `check` and profile-switch validation need a Codex version with `doctor --json`; `safe-update` also needs `codex update`.
 
 ```bash
 git clone https://github.com/UMRzcz-831/codex-socks-manager.git
@@ -42,27 +42,62 @@ codex-socks use office
 codex-socks check
 ```
 
-The installer writes user-local commands and replaces `~/.local/bin/codex`. If that file is a custom launcher, back it up first. Put `~/.local/bin` early in your shell's `PATH`. To choose another interpreter, run `PYTHON=/path/to/python3 ./scripts/install.sh`.
+The installer creates a versioned virtual environment under `~/.local/share/codex-socks-manager/venvs/`. It installs the selected edition, checks its imports and locates Codex before replacing user-local commands and `~/.local/bin/codex`; the TUI edition also checks UI resources. Dependency or preflight failures leave the old entry points intact; previous environments and private bootstrap backups are retained for recovery. Installation still needs build tools from a package index or a configured local wheel source. If venv creation fails, install your distribution's venv support (for example, `python3-venv` on Debian/Ubuntu).
+
+| Edition | From the project directory | pip, in the target Python environment |
+| --- | --- | --- |
+| CLI (default) | `./scripts/install.sh` | `python3 -m pip install .` |
+| CLI + TUI | `./scripts/install.sh --with-tui` | `python3 -m pip install '.[tui]'` |
+
+Each installer run selects a new environment. Keep `--with-tui` when upgrading the full edition; rerunning without it switches the entry points to a fresh CLI-only environment. Profiles and old environments are retained. Adding TUI later uses the same `--with-tui` command, not pip inside the managed venv. A plain pip reinstall does not remove previously installed extras; use a fresh environment for a strictly lightweight installation. `./scripts/install.sh --help` lists the options.
+
+If `~/.local/bin/codex` is a custom launcher, back it up first. Put `~/.local/bin` early in your shell's `PATH`. To choose the Python used to create the environment, run `PYTHON=/path/to/python3 ./scripts/install.sh`. Existing source-copy installations can migrate by rerunning the installer; profile locations do not change.
 
 For a pip installation, run `python3 -m pip install .` in the Python environment you want to keep, then run `codex-socks install` there. The generated launcher continues to use that environment's interpreter.
 
+## Interactive manager
+
+After installing the TUI edition, run `codex-socks` in an interactive terminal, or explicitly run `codex-socks tui`. Four tabs cover profiles, Doctor diagnostics, maintenance, and a searchable command manual. The graphite theme uses warm-white text, ice-blue focus, and thin panel borders. At 100 columns or wider, lists and details split roughly 65% / 35%; narrower terminals stack them. The profile table separates the `>` selected row from the `*` active proxy. Editing saves a profile; choose Apply to restart app-server and validate it.
+
+Use the mouse, Tab, arrow keys and Enter to navigate. Shortcuts are `a` (add), `e` (edit), `r` (refresh local data), `l` (switch language), `q` (quit), and `F2` (full operation result). Focus a details panel with Tab and use arrows or Page Up / Page Down to scroll. Letter shortcuts are inactive while typing in a field. Use at least 80 columns by 24 rows; content scrolls within that layout, while smaller terminals show a size warning. Operations that restart processes or replace data explain their effects before confirmation. While an operation or rollback runs, duplicate submissions and normal exit are blocked.
+
+Diagnostics run only when requested. A previous result is marked stale after an operation or local refresh; it is not a live connectivity indicator.
+
+![Codex SOCKS Manager TUI showing the profile table and selected-profile details](docs/designs/tui-graphite/rendered/profiles-en-120x36.png)
+
+See the [real TUI screenshots and verification notes](docs/designs/tui-graphite/rendered/README.md) for both terminal sizes. These use fake profiles, not live diagnostics.
+
+```bash
+codex-socks tui --lang zh-CN
+codex-socks --lang en list
+CODEX_SOCKS_LANG=zh-CN codex-socks
+```
+
+`--lang` works before or after a subcommand. The language order is explicit option, `CODEX_SOCKS_LANG`, then `LC_ALL` / `LC_MESSAGES` / `LANG`; Chinese locales use simplified Chinese and other locales use English. Switching inside the TUI lasts for that session. JSON output is unchanged.
+
+Without UI dependencies, a bare `codex-socks` prints help and returns 0; explicit `tui` gives installation instructions and returns 2. Without an interactive terminal (or with `TERM=dumb`), a bare invocation also prints help and returns 0, while explicit `tui` reports the terminal requirement and returns 2. CLI tables always use plain text without ANSI escapes. `NO_COLOR` does not prevent entering an installed TUI; text and symbols still distinguish states.
+
 ## Commands
 
-| Command | Behavior |
-| --- | --- |
-| `add NAME [URL]` | Create a profile; omitting URL opens a hidden prompt. |
-| `list [--json]` | Show profiles and active selection with username/password masked. |
-| `use NAME` | Select a profile, restart matching app-server roles, and validate. |
-| `use off` / `off` | Clear managed proxy variables, restart, and validate direct connectivity. |
-| `edit NAME` | Edit via `$EDITOR` in a `0600` temporary file; validate before replacement. |
-| `del NAME` | Delete an inactive profile. |
-| `del NAME --force` | Switch an active profile to off and validate before deleting it. |
-| `check` | Print a JSON summary of Codex Doctor results. |
-| `install` | Discover Codex and install or repair the managed launcher. |
-| `backup` | Create a local snapshot, including Codex configuration when present. |
-| `restore [SNAPSHOT]` | Restore the proxy layer; defaults to the latest known-good snapshot. |
-| `safe-update` | Back up, invoke `codex update`, repair the launcher, restart, and validate. |
-| `migrate-legacy [--jp PATH] [--us PATH]` | Import old JP/US environment files without sourcing shell code. |
+| Command | Behavior | Example |
+| --- | --- | --- |
+| `add NAME [URL]` | Create a profile; omitting URL opens a hidden prompt. | `codex-socks add office` |
+| `list` | Show a table with state, name, protocol and masked proxy address. | `codex-socks list` |
+| `list --json` | Output profiles and active selection as JSON for scripts. | `codex-socks list --json` |
+| `use NAME` | Select a profile, restart matching app-server roles, and validate. | `codex-socks use office` |
+| `use off` / `off` | Clear managed proxy variables, restart, and validate direct connectivity. | `codex-socks use off` / `codex-socks off` |
+| `edit NAME` | Edit via `$EDITOR` in a `0600` temporary file; validate before replacement. | `EDITOR=vi codex-socks edit office` |
+| `del NAME` | Delete an inactive profile. | `codex-socks del office` |
+| `del NAME --force` | Switch an active profile to off and validate before deleting it. | `codex-socks del office --force` |
+| `check` | Print a JSON summary of Codex Doctor results; return 1 when unhealthy. | `codex-socks check` |
+| `install` | Discover Codex and install or repair the managed launcher. | `codex-socks install` |
+| `backup` | Create a local snapshot, including Codex configuration when present. | `codex-socks backup` |
+| `restore [SNAPSHOT]` | Restore the proxy layer; defaults to the latest known-good snapshot. | `codex-socks restore` / `codex-socks restore /path/to/snapshot` |
+| `safe-update` | Back up, invoke `codex update`, repair the launcher, restart, and validate. | `codex-socks safe-update` |
+| `migrate-legacy [--jp PATH] [--us PATH]` | Import old JP/US environment files without sourcing shell code. | `codex-socks migrate-legacy --jp /path/to/jp.env --us /path/to/us.env` |
+| `tui` | Open the optional manager; also the interactive default when UI dependencies are installed. | `codex-socks tui` |
+
+Use `codex-socks -h` for the command table and `codex-socks COMMAND -h` for parameters, examples, and behavior notes. A backup's `known-good` label does not itself run a health check.
 
 Set an editor for one invocation with `EDITOR=vi codex-socks edit office`. Editing an active profile does not restart anything; run `codex-socks use office` afterward to apply and validate the change.
 
@@ -152,7 +187,7 @@ Install development dependencies in an isolated environment:
 
 ```bash
 python3 -m venv .venv
-.venv/bin/python -m pip install -e '.[test]'
+.venv/bin/python -m pip install -e '.[test,tui]'
 git config core.hooksPath .githooks
 ```
 
@@ -167,5 +202,7 @@ openspec validate refresh-readmes-and-agent-guidance --strict
 .venv/bin/python -m compileall -q src tests
 shellcheck .githooks/pre-commit scripts/install.sh
 ```
+
+CI also exercises real installation and upgrade in disposable environments. To run that test locally, prepare a wheel directory with `pip wheel . 'setuptools>=68' wheel --wheel-dir /path/to/wheels`, then set `CODEX_SOCKS_TEST_WHEELHOUSE=/path/to/wheels` when running pytest. Without it, only the offline installation integration test is skipped; the installation failure tests still run.
 
 Licensed under MIT. See [LICENSE](LICENSE).

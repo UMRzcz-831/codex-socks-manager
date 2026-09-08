@@ -25,7 +25,7 @@ Codex 更新后，原本可用的代理设置可能失效。这个 Linux 命令�
 
 ## 快速开始
 
-你需要 Linux、Python 3.10+，并且已经安装 Codex CLI。管理器本身只使用 Python 标准库。`check` 和配置切换验收要求 Codex 支持 `doctor --json`；`safe-update` 还要求支持 `codex update`。
+你需要 Linux、支持 venv/pip 的 Python 3.10+，并且已经安装 Codex CLI。默认 CLI 没有第三方运行依赖。Textual 和 Rich 仅随选装的 TUI 安装；两种版本的 CLI 表格都使用标准库。`check` 和配置切换验收要求 Codex 支持 `doctor --json`；`safe-update` 还要求支持 `codex update`。
 
 ```bash
 git clone https://github.com/UMRzcz-831/codex-socks-manager.git
@@ -42,27 +42,62 @@ codex-socks use office
 codex-socks check
 ```
 
-安装器会写入用户本地命令，并替换 `~/.local/bin/codex`。如果这个文件是你自己的 launcher，请先备份。把 `~/.local/bin` 放到 shell 的 `PATH` 前部。要选择其他解释器，可运行 `PYTHON=/path/to/python3 ./scripts/install.sh`。
+安装器会在 `~/.local/share/codex-socks-manager/venvs/` 中创建版本化虚拟环境，安装所选版本、检查导入并找到 Codex 后，再替换用户本地命令和 `~/.local/bin/codex`；完整版还会检查界面资源。依赖安装或预检失败会保留旧入口；旧环境和私有 bootstrap 备份也会保留，供恢复使用。构建工具仍需要从包索引或已配置的本地 wheel 源获取。若无法创建 venv，请安装发行版对应的支持包，例如 Debian/Ubuntu 的 `python3-venv`。
+
+| 版本 | 在项目目录执行 | 在目标 Python 环境中使用 pip |
+| --- | --- | --- |
+| 轻量 CLI（默认） | `./scripts/install.sh` | `python3 -m pip install .` |
+| CLI + TUI | `./scripts/install.sh --with-tui` | `python3 -m pip install '.[tui]'` |
+
+每次运行安装器都会创建新环境。完整版升级时继续带 `--with-tui`；不带选项会把入口切换到新的轻量 CLI 环境，保留代理配置和旧环境。后续补装界面也使用 `--with-tui`，不要在受管 venv 中自行运行 pip。普通 pip 重装不会移除已装的 extra；需要严格轻量时请用新环境。执行 `./scripts/install.sh --help` 可查看选项。
+
+如果 `~/.local/bin/codex` 是你自己的 launcher，请先备份。把 `~/.local/bin` 放到 shell 的 `PATH` 前部。要指定创建环境的 Python，可运行 `PYTHON=/path/to/python3 ./scripts/install.sh`。之前通过复制源码安装的用户重新运行安装器即可迁移，代理配置的位置不变。
 
 也可以在准备长期保留的 Python 环境里执行 `python3 -m pip install .`，然后在同一环境运行 `codex-socks install`。生成的 launcher 会继续使用该环境的解释器。
 
+## 交互管理界面
+
+安装完整版后，在交互终端运行 `codex-socks`，或显式执行 `codex-socks tui`。四个标签页分别管理代理、运行 Doctor 诊断、执行维护、查询命令手册。石墨黑主题采用暖白文字、冰蓝焦点和细边框；宽度达到 100 列时，列表与详情按约 65%／35% 分栏，窄屏改为上下排列。代理表格以 `>` 标出选中行，以 `*` 标出当前活动配置。编辑只保存配置；需要重启 app-server 并验收时，另选“应用”。
+
+可以用鼠标、Tab、方向键和 Enter 导航。快捷键为 `a` 新增、`e` 编辑、`r` 刷新本地数据、`l` 切换语言、`q` 退出、`F2` 查看完整操作结果。用 Tab 聚焦详情，再用方向键或 Page Up／Page Down 滚动。在输入框中打字时，字母快捷键不会触发。终端至少使用 80 列、24 行，内容区可滚动；更小的终端会显示尺寸提示。涉及重启进程或替换数据的操作会先说明影响，再由你确认。操作及回滚执行期间，会阻止重复提交和普通退出。
+
+诊断只在主动请求时执行。其他操作或本地刷新后，旧结果会标为过期，不能当作实时连通性状态。
+
+![Codex SOCKS Manager TUI 的代理表格与所选配置详情](docs/designs/tui-graphite/rendered/profiles-zh-CN-120x36.png)
+
+两种终端尺寸的 [实际 TUI 截图与验收记录](docs/designs/tui-graphite/rendered/README.md)使用假配置生成，不是实时诊断结果。
+
+```bash
+codex-socks tui --lang zh-CN
+codex-socks --lang en list
+CODEX_SOCKS_LANG=zh-CN codex-socks
+```
+
+`--lang` 可放在子命令前后。语言依次取显式参数、`CODEX_SOCKS_LANG`、`LC_ALL` / `LC_MESSAGES` / `LANG`；中文 locale 使用简体中文，其余使用英文。TUI 内切换语言仅影响本次会话，JSON 输出不翻译。
+
+未装界面依赖时，单独运行 `codex-socks` 显示帮助并返回 0；显式 `tui` 给出安装说明并返回 2。非交互环境或 `TERM=dumb` 下，无参数同样显示帮助并返回 0，显式 `tui` 则说明终端要求并返回 2。CLI 表格始终使用无 ANSI 的纯文本。`NO_COLOR` 不会阻止进入已安装的 TUI，文字和符号仍会区分状态。
+
 ## 命令速查
 
-| 命令 | 行为 |
-| --- | --- |
-| `add NAME [URL]` | 新增配置；不传 URL 时隐藏输入。 |
-| `list [--json]` | 查看配置和活动选择，用户名、密码脱敏。 |
-| `use NAME` | 切换配置，重启匹配的 app-server 并验收。 |
-| `use off` / `off` | 清除受管代理变量，重启并验收直连。 |
-| `edit NAME` | 通过 `$EDITOR` 编辑 `0600` 临时文件，校验后替换。 |
-| `del NAME` | 删除非活动配置。 |
-| `del NAME --force` | 活动配置先切换 off 并验收，再删除。 |
-| `check` | 输出 Codex Doctor 的 JSON 汇总。 |
-| `install` | 发现 Codex，安装或修复受管 launcher。 |
-| `backup` | 创建本地快照，存在 Codex 配置时一并备份。 |
-| `restore [SNAPSHOT]` | 恢复代理层；默认使用最新 known-good 快照。 |
-| `safe-update` | 备份、调用 `codex update`、修复 launcher、重启并验收。 |
-| `migrate-legacy [--jp PATH] [--us PATH]` | 导入旧 JP/US 环境文件，不执行其中的 shell 代码。 |
+| 命令 | 行为 | 示例 |
+| --- | --- | --- |
+| `add NAME [URL]` | 新增配置；不传 URL 时隐藏输入。 | `codex-socks add office` |
+| `list` | 以表格展示状态、名称、协议及脱敏代理地址。 | `codex-socks list` |
+| `list --json` | 以 JSON 输出配置和活动选择，供脚本使用。 | `codex-socks list --json` |
+| `use NAME` | 切换配置，重启匹配的 app-server 并验收。 | `codex-socks use office` |
+| `use off` / `off` | 清除受管代理变量，重启并验收直连。 | `codex-socks use off` / `codex-socks off` |
+| `edit NAME` | 通过 `$EDITOR` 编辑 `0600` 临时文件，校验后替换。 | `EDITOR=vi codex-socks edit office` |
+| `del NAME` | 删除非活动配置。 | `codex-socks del office` |
+| `del NAME --force` | 活动配置先切换 off 并验收，再删除。 | `codex-socks del office --force` |
+| `check` | 输出 Codex Doctor 的 JSON 汇总，异常时返回 1。 | `codex-socks check` |
+| `install` | 发现 Codex，安装或修复受管 launcher。 | `codex-socks install` |
+| `backup` | 创建本地快照，存在 Codex 配置时一并备份。 | `codex-socks backup` |
+| `restore [SNAPSHOT]` | 恢复代理层；默认使用最新 known-good 快照。 | `codex-socks restore` / `codex-socks restore /path/to/snapshot` |
+| `safe-update` | 备份、调用 `codex update`、修复 launcher、重启并验收。 | `codex-socks safe-update` |
+| `migrate-legacy [--jp PATH] [--us PATH]` | 导入旧 JP/US 环境文件，不执行其中的 shell 代码。 | `codex-socks migrate-legacy --jp /path/to/jp.env --us /path/to/us.env` |
+| `tui` | 打开选装界面；装有界面依赖时也是交互终端下的默认入口。 | `codex-socks tui` |
+
+执行 `codex-socks -h` 查看命令表格，执行 `codex-socks COMMAND -h` 查看参数、示例和行为说明。备份的 `known-good` 标签本身不代表已执行健康检查。
 
 用 `EDITOR=vi codex-socks edit office` 可以为单次操作指定编辑器。编辑活动配置不会重启进程；完成后执行 `codex-socks use office`，应用并验收改动。
 
@@ -152,7 +187,7 @@ codex-socks migrate-legacy \
 
 ```bash
 python3 -m venv .venv
-.venv/bin/python -m pip install -e '.[test]'
+.venv/bin/python -m pip install -e '.[test,tui]'
 git config core.hooksPath .githooks
 ```
 
@@ -167,5 +202,7 @@ openspec validate refresh-readmes-and-agent-guidance --strict
 .venv/bin/python -m compileall -q src tests
 shellcheck .githooks/pre-commit scripts/install.sh
 ```
+
+CI 还会在一次性环境中验证真实安装和升级。本地可先执行 `pip wheel . 'setuptools>=68' wheel --wheel-dir /path/to/wheels` 准备 wheel 目录，再在运行 pytest 时设置 `CODEX_SOCKS_TEST_WHEELHOUSE=/path/to/wheels`。未设置时只跳过离线安装集成测试，安装失败保护测试仍会运行。
 
 项目采用 MIT 许可证，见 [LICENSE](LICENSE)。
