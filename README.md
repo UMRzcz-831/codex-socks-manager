@@ -6,66 +6,85 @@
 
 [English](README.md) · [简体中文](README.zh-CN.md)
 
-Codex updates can leave a working proxy setup behind. This Linux CLI keeps SOCKS and HTTP profiles in one place, passes them to Codex on every launch, and helps diagnose HTTPS or WebSocket failures. `no more codex 403` is the goal, not a blanket promise: account access, regional availability, workspace permissions, and remote authorization still apply.
+Codex SOCKS Manager keeps proxy profiles, app-server restarts, diagnostics, and update recovery in one Linux tool. Use the dependency-free CLI in scripts or install the optional Textual interface for day-to-day management.
 
-## What it does
+It fixes proxy transport problems. It cannot grant account access, enable an unsupported region, change workspace permissions, or bypass a remote ACL. The slogan is a goal, not a promise that every 403 is fixable.
 
-- Store named `socks5h://`, `socks5://`, `http://`, and `https://` profiles.
-- Put a managed launcher in front of an existing standalone, npm, or pnpm Codex installation.
-- Export uppercase and lowercase `HTTP_PROXY`, `HTTPS_PROXY`, and `ALL_PROXY` while preserving local bypasses in `NO_PROXY`.
-- Switch profiles, restart matching current-user app-server roles, and restore the previous selection if validation fails.
-- Turn Codex Doctor checks for HTTPS, WebSockets, app-server status, and the proxy environment into one summary.
-- Back up and restore the proxy layer, with `codex-proxy-guard` kept as a compatible command.
+![Codex SOCKS Manager TUI showing the profile table and selected-profile details](docs/designs/tui-graphite/rendered/profiles-en-120x36.png)
 
-## Why not just export a proxy variable?
+## At a glance
 
-An `export ALL_PROXY=...` is enough for one shell, but it does not manage endpoint changes, app-server restarts, or Codex updates. Codex SOCKS Manager saves multiple SOCKS and HTTP endpoints as named profiles. `use` selects one, restarts matching app-server roles for the current user, and checks the result with Doctor. If that check fails, it restores the previous selection.
+| Area | What the manager does |
+| --- | --- |
+| Profiles | Stores named `socks5h://`, `socks5://`, `http://`, and `https://` endpoints. |
+| Apply and rollback | Exports upper- and lowercase proxy variables, restarts matching current-user app-server roles, validates with Doctor, and restores the previous selection when validation fails. |
+| Diagnostics | Summarizes HTTPS, WebSocket, app-server, and proxy-environment checks without treating them as proof of account authorization. |
+| Maintenance | Installs or repairs the managed launcher, creates snapshots, restores the proxy layer, migrates old profiles, and protects `codex update` with recovery. |
+| Interfaces | Provides 13 bilingual CLI commands plus an optional four-page Textual TUI. Machine-readable JSON stays unchanged. |
 
-Updates get a recovery path too. `safe-update` creates a snapshot before `codex update`, then repairs the managed launcher, restarts app-server, and validates the result. If the update or validation fails, it attempts to restore the snapshot.
+An ordinary `export ALL_PROXY=...` is fine for one shell. This project is for setups that also need named endpoints, app-server lifecycle handling, validation, and a recovery path after Codex updates.
 
-## Quick start
+## Install
 
-You need Linux, Python 3.10+ with venv/pip support, and an existing Codex CLI installation. The default CLI has no third-party runtime dependencies. Textual and Rich are optional, for the TUI only; CLI tables use the standard library in both editions. `check` and profile-switch validation need a Codex version with `doctor --json`; `safe-update` also needs `codex update`.
+Requirements: Linux, Python 3.10+ with venv/pip support, and an existing Codex CLI installation. Profile switching and `check` require a Codex version with `doctor --json`; `safe-update` also requires `codex update`.
+
+| Edition | Project installer | pip in a retained environment |
+| --- | --- | --- |
+| CLI, no third-party runtime dependencies | `./scripts/install.sh` | `python3 -m pip install .` |
+| CLI + Textual TUI | `./scripts/install.sh --with-tui` | `python3 -m pip install '.[tui]'` |
+
+The managed installer is the simplest route:
 
 ```bash
 git clone https://github.com/UMRzcz-831/codex-socks-manager.git
 cd codex-socks-manager
-./scripts/install.sh
+./scripts/install.sh --with-tui
 export PATH="$HOME/.local/bin:$PATH"
+```
 
-# Enter the proxy URL at the hidden prompt.
+For the lightweight edition, omit `--with-tui`. Each installer run builds a new versioned environment under `~/.local/share/codex-socks-manager/venvs/`, verifies it, then switches the entry points. A failed install leaves the old entry points intact. Existing profiles, private bootstrap backups, and previous environments are retained.
+
+Keep `--with-tui` on later upgrades if you want the full edition. Running the installer without it switches to a new CLI-only environment. A normal pip reinstall does not remove extras already present, so use a fresh environment when you need a strictly lightweight pip installation.
+
+The installer replaces `~/.local/bin/codex` with a managed launcher after finding the real standalone, npm, or pnpm Codex executable. Back up a custom launcher first. Use `PYTHON=/path/to/python3 ./scripts/install.sh` to select the interpreter. For a pip installation, run `codex-socks install` in the same environment after installing the package.
+
+## First profile
+
+Use the hidden prompt for a URL that contains credentials:
+
+```bash
 codex-socks add office
 codex-socks list
-
-# Requires existing, matching Codex app-server processes.
 codex-socks use office
 codex-socks check
 ```
 
-The installer creates a versioned virtual environment under `~/.local/share/codex-socks-manager/venvs/`. It installs the selected edition, checks its imports and locates Codex before replacing user-local commands and `~/.local/bin/codex`; the TUI edition also checks UI resources. Dependency or preflight failures leave the old entry points intact; previous environments and private bootstrap backups are retained for recovery. Installation still needs build tools from a package index or a configured local wheel source. If venv creation fails, install your distribution's venv support (for example, `python3-venv` on Debian/Ubuntu).
+Passing a URL directly is convenient for a credential-free local proxy:
 
-| Edition | From the project directory | pip, in the target Python environment |
-| --- | --- | --- |
-| CLI (default) | `./scripts/install.sh` | `python3 -m pip install .` |
-| CLI + TUI | `./scripts/install.sh --with-tui` | `python3 -m pip install '.[tui]'` |
+```bash
+codex-socks add local socks5://127.0.0.1:1080
+```
 
-Each installer run selects a new environment. Keep `--with-tui` when upgrading the full edition; rerunning without it switches the entry points to a fresh CLI-only environment. Profiles and old environments are retained. Adding TUI later uses the same `--with-tui` command, not pip inside the managed venv. A plain pip reinstall does not remove previously installed extras; use a fresh environment for a strictly lightweight installation. `./scripts/install.sh --help` lists the options.
+Command-line URLs may remain in shell history or process arguments. `list` masks usernames and passwords but still prints hosts and ports. Review its output before sharing it.
 
-If `~/.local/bin/codex` is a custom launcher, back it up first. Put `~/.local/bin` early in your shell's `PATH`. To choose the Python used to create the environment, run `PYTHON=/path/to/python3 ./scripts/install.sh`. Existing source-copy installations can migrate by rerunning the installer; profile locations do not change.
+Applying a profile restarts matching app-server roles and can interrupt the current Codex session. The manager does not start an app-server that was not already running. `off` also validates; if direct connectivity fails, it restores the previous selection.
 
-For a pip installation, run `python3 -m pip install .` in the Python environment you want to keep, then run `codex-socks install` there. The generated launcher continues to use that environment's interpreter.
+## Textual interface
 
-## Interactive manager
+Run `codex-socks` in an interactive terminal after installing the TUI edition, or use `codex-socks tui` explicitly.
 
-After installing the TUI edition, run `codex-socks` in an interactive terminal, or explicitly run `codex-socks tui`. Four tabs cover profiles, Doctor diagnostics, maintenance, and a searchable command manual. The graphite theme uses warm-white text, ice-blue focus, and thin panel borders. At 100 columns or wider, lists and details split roughly 65% / 35%; narrower terminals stack them. The profile table separates the `>` selected row from the `*` active proxy. Editing saves a profile; choose Apply to restart app-server and validate it.
+| Page | Available work |
+| --- | --- |
+| Profiles | Add, edit, delete, apply, or turn off a profile. `>` marks the cursor; `*` marks the active selection. Editing saves without applying. |
+| Diagnostics | Run Doctor on demand and inspect HTTPS, WSS, app-server, and proxy-environment results. Old results are marked stale after local changes. |
+| Maintenance | Repair the launcher, create a backup, select or enter a restore snapshot, run a safe update, or migrate legacy files. |
+| Commands | Filter the bilingual command table and read parameters, examples, and behavior notes. |
 
-Use the mouse, Tab, arrow keys and Enter to navigate. Shortcuts are `a` (add), `e` (edit), `r` (refresh local data), `l` (switch language), `q` (quit), and `F2` (full operation result). Focus a details panel with Tab and use arrows or Page Up / Page Down to scroll. Letter shortcuts are inactive while typing in a field. Use at least 80 columns by 24 rows; content scrolls within that layout, while smaller terminals show a size warning. Operations that restart processes or replace data explain their effects before confirmation. While an operation or rollback runs, duplicate submissions and normal exit are blocked.
+The graphite theme uses warm-white text, ice-blue focus, and orange or red only for warnings and errors. At 100 columns or wider, the main list and details use an approximately 65/35 split. Narrower terminals stack the panels; 80×24 is the supported compact size.
 
-Diagnostics run only when requested. A previous result is marked stale after an operation or local refresh; it is not a live connectivity indicator.
+Use the mouse, Tab, arrows, Enter, Page Up, and Page Down. Shortcuts are `a` add, `e` edit, `r` refresh, `l` language, `q` quit, and `F2` full operation result. Letter shortcuts are inactive while typing. Actions that restart processes or replace data require confirmation. Duplicate submission and normal exit are blocked until an operation and any rollback finish.
 
-![Codex SOCKS Manager TUI showing the profile table and selected-profile details](docs/designs/tui-graphite/rendered/profiles-en-120x36.png)
-
-See the [real TUI screenshots and verification notes](docs/designs/tui-graphite/rendered/README.md) for both terminal sizes. These use fake profiles, not live diagnostics.
+[Browse screenshots for every page, both languages, and both terminal sizes](docs/designs/tui-graphite/rendered/README.md). They were rendered from the real Textual app with disposable fake profiles; no live diagnostic or proxy operation was used.
 
 ```bash
 codex-socks tui --lang zh-CN
@@ -73,100 +92,63 @@ codex-socks --lang en list
 CODEX_SOCKS_LANG=zh-CN codex-socks
 ```
 
-`--lang` works before or after a subcommand. The language order is explicit option, `CODEX_SOCKS_LANG`, then `LC_ALL` / `LC_MESSAGES` / `LANG`; Chinese locales use simplified Chinese and other locales use English. Switching inside the TUI lasts for that session. JSON output is unchanged.
+`--lang` works before or after a subcommand. Selection order is the explicit option, `CODEX_SOCKS_LANG`, then `LC_ALL` / `LC_MESSAGES` / `LANG`. Chinese locales select simplified Chinese; everything else falls back to English. A language change inside the TUI lasts for that session.
 
-Without UI dependencies, a bare `codex-socks` prints help and returns 0; explicit `tui` gives installation instructions and returns 2. Without an interactive terminal (or with `TERM=dumb`), a bare invocation also prints help and returns 0, while explicit `tui` reports the terminal requirement and returns 2. CLI tables always use plain text without ANSI escapes. `NO_COLOR` does not prevent entering an installed TUI; text and symbols still distinguish states.
+Without Textual and Rich, a bare interactive invocation prints help and returns 0; explicit `tui` explains how to install it and returns 2. In a non-interactive terminal or with `TERM=dumb`, bare invocation also prints help while explicit `tui` returns 2. CLI tables never emit ANSI. `NO_COLOR` keeps the TUI usable because text and symbols also identify state.
 
-## Commands
+## Command reference
 
 | Command | Behavior | Example |
 | --- | --- | --- |
-| `add NAME [URL]` | Create a profile; omitting URL opens a hidden prompt. | `codex-socks add office` |
-| `list` | Show a table with state, name, protocol and masked proxy address. | `codex-socks list` |
-| `list --json` | Output profiles and active selection as JSON for scripts. | `codex-socks list --json` |
-| `use NAME` | Select a profile, restart matching app-server roles, and validate. | `codex-socks use office` |
-| `use off` / `off` | Clear managed proxy variables, restart, and validate direct connectivity. | `codex-socks use off` / `codex-socks off` |
-| `edit NAME` | Edit via `$EDITOR` in a `0600` temporary file; validate before replacement. | `EDITOR=vi codex-socks edit office` |
-| `del NAME` | Delete an inactive profile. | `codex-socks del office` |
-| `del NAME --force` | Switch an active profile to off and validate before deleting it. | `codex-socks del office --force` |
-| `check` | Print a JSON summary of Codex Doctor results; return 1 when unhealthy. | `codex-socks check` |
-| `install` | Discover Codex and install or repair the managed launcher. | `codex-socks install` |
+| `add NAME [URL]` | Create a validated profile; omit URL for hidden input. | `codex-socks add office` |
+| `use NAME` | Apply a profile, restart matching app-server roles, and validate. | `codex-socks use office` |
+| `list [--json]` | Show the four-column profile table or stable JSON. | `codex-socks list --json` |
+| `edit NAME` | Edit through `$EDITOR` using a `0600` temporary file; save without applying. | `EDITOR=vi codex-socks edit office` |
+| `del NAME [--force]` | Delete a profile; an active profile requires a validated switch to off. | `codex-socks del office --force` |
+| `off` | Clear managed proxy variables, restart matching roles, and validate direct access. | `codex-socks off` |
+| `check` | Print the Doctor summary as JSON; return 1 when unhealthy. | `codex-socks check` |
+| `install` | Find Codex and install or repair the managed launcher. | `codex-socks install` |
 | `backup` | Create a local snapshot, including Codex configuration when present. | `codex-socks backup` |
-| `restore [SNAPSHOT]` | Restore the proxy layer; defaults to the latest known-good snapshot. | `codex-socks restore` / `codex-socks restore /path/to/snapshot` |
-| `safe-update` | Back up, invoke `codex update`, repair the launcher, restart, and validate. | `codex-socks safe-update` |
-| `migrate-legacy [--jp PATH] [--us PATH]` | Import old JP/US environment files without sourcing shell code. | `codex-socks migrate-legacy --jp /path/to/jp.env --us /path/to/us.env` |
-| `tui` | Open the optional manager; also the interactive default when UI dependencies are installed. | `codex-socks tui` |
+| `restore [SNAPSHOT]` | Restore the proxy layer; default to the latest known-good snapshot. | `codex-socks restore /path/to/snapshot` |
+| `safe-update` | Snapshot, run `codex update`, repair the launcher, restart, and validate. | `codex-socks safe-update` |
+| `migrate-legacy [--jp PATH] [--us PATH]` | Import old JP/US environment files without sourcing shell. | `codex-socks migrate-legacy --jp /path/to/jp.env --us /path/to/us.env` |
+| `tui` | Open the optional interactive manager. | `codex-socks tui` |
 
-Use `codex-socks -h` for the command table and `codex-socks COMMAND -h` for parameters, examples, and behavior notes. A backup's `known-good` label does not itself run a health check.
+Run `codex-socks -h` for this table in the terminal and `codex-socks COMMAND -h` for detailed parameters, examples, and boundaries. `codex-proxy-guard` remains a compatible entry point for `backup`, `check`, `restore`, and `safe-update`.
 
-Set an editor for one invocation with `EDITOR=vi codex-socks edit office`. Editing an active profile does not restart anything; run `codex-socks use office` afterward to apply and validate the change.
+## Diagnostics and 403 boundaries
 
-Applying a profile can interrupt an active Codex session because the manager restarts the app-server roles it finds. It will not start an app-server that is absent. If direct connectivity is unavailable, `off` can fail validation and roll back.
+`codex-socks check` returns `https`, `wss`, `app_server`, `proxy_env`, overall `ok`, and a `category`. The 403 classification uses keywords from Doctor output. Values such as `authorization` and `proxy_transport` are diagnostic hints, not verdicts. A healthy transport check does not audit every file permission, child-process environment, connector, account, or workspace.
 
-Passing the URL directly is convenient for a credential-free local proxy:
+For a `codex_apps` or MCP connector, follow Doctor with a read-only request that your account is authorized to make. Keep raw responses and diagnostics private if they contain identifiers or credentials.
 
-```bash
-codex-socks add local socks5h://127.0.0.1:1080
-```
-
-Use the hidden prompt for real credentials. A positional URL can remain in shell history or process arguments. `list` masks the username and password, but it still prints the host and port, so check its output before sharing it.
-
-## Unsupported regions: API examples
-
-OpenAI publishes a [list of countries and territories supported by its API](https://help.openai.com/en/articles/5347006-openai-api-supported-countries-and-territories), but no separate unsupported list. When checked on **2026-09-07**, the following examples were absent:
-
-- Mainland China, Hong Kong, Macao, Iran, North Korea.
-- Russia, Belarus.
-- Cuba, Venezuela.
-
-This is not a complete official blacklist; it is a short set of examples inferred from the published list. Ukraine appears on the list with certain exceptions. Check the linked page for the latest wording.
-
-The source covers API availability, not every Codex or ChatGPT sign-in arrangement. OpenAI says access from unsupported locations may lead to an account block or suspension. A proxy does not change service eligibility or grant account or workspace permissions.
-
-## Diagnostics and connectors
-
-```bash
-codex-socks check
-```
-
-The JSON response contains `https`, `wss`, `app_server`, and `proxy_env`, along with the overall `ok` value and a `category`. These fields come from Doctor output. A green result does not audit every file permission, child-process environment, or connector operation.
-
-The 403 classification looks for keywords in Doctor output. Categories such as `authorization` and `proxy_transport` are clues, not a verdict. If fixing the transport does not restore access, check the account, workspace permissions, and remote ACLs.
-
-For `codex_apps`/MCP, finish with a read-only smoke test for the connector you use:
-
-1. Run `codex-socks check` and inspect the summary.
-2. In Codex, ask an already connected app to read an item you are authorized to access, such as an issue title.
-3. Confirm that the expected result arrives without a transport or authorization error. Keep raw responses and diagnostics private when they contain sensitive information.
+OpenAI publishes an [API-supported countries and territories list](https://help.openai.com/en/articles/5347006-openai-api-supported-countries-and-territories), not a separate unsupported list. When checked on **2026-09-07**, Mainland China, Hong Kong, Macao, Iran, North Korea, Russia, Belarus, Cuba, and Venezuela were absent. This is a dated inference from the API list, not a complete official blacklist or a statement about every Codex/ChatGPT sign-in path. OpenAI warns that access from unsupported locations may lead to an account block or suspension. A proxy does not change service eligibility.
 
 ## Updates and recovery
 
 ```bash
+codex-socks check
 codex-socks backup
 codex-socks safe-update
 
-# To recover from an existing known-good snapshot:
+# Restore the latest known-good snapshot:
 codex-socks restore
 ```
 
-`safe-update` snapshots the proxy layer, asks the configured real Codex executable to update, reinstalls the launcher, restarts app-server roles, and runs Doctor. If a step fails, it tries to restore the snapshot. It never copies or downgrades Codex binaries. Run `check` before the update so you have a healthy baseline, then review any recovery errors.
+`safe-update` takes a proxy-layer snapshot, asks the configured real Codex executable to update, repairs the launcher, restarts app-server, and runs Doctor. On failure it attempts snapshot recovery and reports whether rollback succeeded. Recovery keeps the installed Codex binary version; it does not downgrade the binary.
 
-`restore` first creates a pre-restore snapshot. It then restores the manager settings, profiles, and saved launcher while keeping the current binary path. Profiles missing from the chosen snapshot leave active storage but remain available in the pre-restore snapshot. `backup` also saves `~/.codex/config.toml` when it exists; `restore` does not write that Codex configuration back automatically.
+`restore` first creates a pre-restore snapshot. It restores manager settings, profiles, and the saved launcher while retaining the current Codex binary path. Profiles absent from the selected snapshot leave active storage but remain in the pre-restore snapshot. `backup` saves `~/.codex/config.toml` when present; `restore` does not write that Codex configuration back automatically. A `known-good` label does not itself run a health check.
 
-The `codex-proxy-guard` compatibility entry point forwards `backup`, `check`, `restore`, and `safe-update` to the same implementation.
-
-## Local storage and legacy migration
+## Storage and migration
 
 | Data | Default location |
 | --- | --- |
-| Manager settings and profiles | `~/.config/codex-socks-manager/` |
+| Settings and profiles | `~/.config/codex-socks-manager/` |
 | Snapshots and state | `~/.local/state/codex-socks-manager/` |
-| Package installed by the shell installer | `~/.local/share/codex-socks-manager/` |
-| User commands and Codex launcher | `~/.local/bin/` |
+| Versioned installer environments | `~/.local/share/codex-socks-manager/` |
+| Commands and managed Codex launcher | `~/.local/bin/` |
 
-`XDG_CONFIG_HOME`, `XDG_STATE_HOME`, and the shell installer's `XDG_DATA_HOME` override these roots. Sensitive directories use `0700`; settings and profile files use `0600`. Credentials remain plaintext on your machine, so protect snapshots as carefully as the original profiles.
-
-To import an older setup:
+`XDG_CONFIG_HOME`, `XDG_STATE_HOME`, and the installer's `XDG_DATA_HOME` override these roots. Sensitive directories use `0700`; settings and profile files use `0600`. Credentials remain plaintext on the local machine, including inside snapshots.
 
 ```bash
 codex-socks backup
@@ -175,34 +157,25 @@ codex-socks migrate-legacy \
   --us ~/.config/openai-proxy/us.env
 ```
 
-Omit both paths to use those legacy locations. Importing an identical profile again is safe; the command rejects an existing profile with different content. Migration leaves the active selection alone. Choose the imported profile with `use` when you are ready to restart.
+With neither path, migration uses those two defaults. Re-importing identical data is safe; conflicting same-name profiles are rejected. Migration does not change the active selection.
 
-Never put real proxy URLs, host details, credentials, snapshots, Doctor output, or runtime logs in public Git, Issues, or CI logs. The repository has ignore rules and a heuristic secret scanner, but you still need to review the staged diff.
+Never publish real proxy URLs, host details, credentials, snapshots, Doctor output, or runtime logs in Git, Issues, CI output, or release assets. The repository's ignore rules and heuristic scanner help, but they do not replace review of the staged diff.
 
-## Contributing
+## Development
 
-See [AGENTS.md](AGENTS.md) for project-specific working guidance and [SECURITY.md](SECURITY.md) for vulnerability reports. Keep the English and Chinese usage instructions aligned. Use OpenSpec when a structured change is requested; documentation-only changes can set `skip_specs: true`.
-
-Install development dependencies in an isolated environment:
+See [AGENTS.md](AGENTS.md) for project-specific guidance and [SECURITY.md](SECURITY.md) for vulnerability reports.
 
 ```bash
 python3 -m venv .venv
 .venv/bin/python -m pip install -e '.[test,tui]'
 git config core.hooksPath .githooks
-```
 
-Run the checks that match your change:
-
-```bash
-git diff --check
-python3 scripts/check-secrets.py
-openspec validate refresh-readmes-and-agent-guidance --strict
-# For Python or shell changes:
 .venv/bin/python -m pytest
 .venv/bin/python -m compileall -q src tests
+python3 scripts/check-secrets.py
 shellcheck .githooks/pre-commit scripts/install.sh
 ```
 
-CI also exercises real installation and upgrade in disposable environments. To run that test locally, prepare a wheel directory with `pip wheel . 'setuptools>=68' wheel --wheel-dir /path/to/wheels`, then set `CODEX_SOCKS_TEST_WHEELHOUSE=/path/to/wheels` when running pytest. Without it, only the offline installation integration test is skipped; the installation failure tests still run.
+CI runs Python 3.10 and 3.12 in separate CLI-only and TUI jobs. The offline installer integration test also needs a local wheel directory through `CODEX_SOCKS_TEST_WHEELHOUSE`; without it, that one test is skipped.
 
 Licensed under MIT. See [LICENSE](LICENSE).
