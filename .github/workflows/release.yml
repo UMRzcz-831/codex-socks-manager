@@ -1,0 +1,96 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - run: python -m pip install --upgrade build twine '.[test,tui]'
+      - name: Check tag and package versions
+        run: |
+          python - <<'PY'
+          import os
+          import pathlib
+          import tomllib
+
+          expected = os.environ["GITHUB_REF_NAME"].removeprefix("v")
+          project = tomllib.loads(pathlib.Path("pyproject.toml").read_text())["project"]["version"]
+          namespace = {}
+          exec(pathlib.Path("src/codex_socks_manager/__init__.py").read_text(), namespace)
+          runtime = namespace["__version__"]
+          if project != expected or runtime != expected:
+              raise SystemExit(f"tag={expected}, project={project}, runtime={runtime}")
+          PY
+      - run: python -m pip wheel --wheel-dir "${{ runner.temp }}/codex-socks-wheels" '.[tui]' 'setuptools>=77' wheel
+      - run: pytest
+        env:
+          CODEX_SOCKS_TEST_WHEELHOUSE: ${{ runner.temp }}/codex-socks-wheels
+          CODEX_SOCKS_TEST_EDITION: tui
+      - run: python -m compileall -q src tests
+      - run: python scripts/check-secrets.py
+      - run: shellcheck .githooks/pre-commit scripts/install.sh scripts/install-release.sh
+      - run: python -m build --outdir dist/python
+      - run: python -m twine check dist/python/*
+      - name: Prepare GitHub Release assets
+        run: |
+          mkdir -p dist/github
+          cp dist/python/* dist/github/
+          cp scripts/install-release.sh dist/github/install.sh
+          cd dist/github
+          sha256sum *.whl *.tar.gz install.sh > SHA256SUMS
+      - uses: actions/upload-artifact@v7
+        with:
+          name: python-distributions
+          path: dist/python/
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v7
+        with:
+          name: github-release-assets
+          path: dist/github/
+          if-no-files-found: error
+
+  publish-github:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: github-release-assets
+          path: release-assets
+      - name: Create or update GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" release-assets/* --clobber --repo "$GITHUB_REPOSITORY"
+          else
+            gh release create "$GITHUB_REF_NAME" release-assets/* +              --verify-tag +              --generate-notes +              --title "codex-socks-manager $GITHUB_REF_NAME" +              --repo "$GITHUB_REPOSITORY"
+          fi
+
+  publish-pypi:
+    needs: [build, publish-github]
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/codex-socks-manager
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: python-distributions
+          path: dist
+      - uses: pypa/gh-action-pypi-publish@release/v1
