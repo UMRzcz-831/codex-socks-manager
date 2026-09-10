@@ -33,17 +33,10 @@ Requirements: Linux, Python 3.10+ with venv/pip support, and an existing Codex C
 The recommended installer downloads the latest wheel from GitHub Releases, verifies its SHA-256, creates a versioned private environment, runs preflight checks, and only then switches the command entry points.
 
 ```bash
-install_dir=$(mktemp -d)
-curl -fL https://github.com/UMRzcz-831/codex-socks-manager/releases/latest/download/install.sh \
-  -o "$install_dir/install.sh"
-curl -fL https://github.com/UMRzcz-831/codex-socks-manager/releases/latest/download/SHA256SUMS \
-  -o "$install_dir/SHA256SUMS"
-(cd "$install_dir" && awk '$2 == "install.sh" { print }' SHA256SUMS | sha256sum -c -)
-sh "$install_dir/install.sh" --with-tui
-export PATH="$HOME/.local/bin:$PATH"
+curl -fsSL https://github.com/UMRzcz-831/codex-socks-manager/releases/latest/download/install.sh | sh -s -- --with-tui
 ```
 
-Omit `--with-tui` for the dependency-free CLI. The installer follows GitHub's `latest` release by default; use `--version v0.3.0` to pin a release. Set `PYTHON=/path/to/python3` when `/usr/bin/python3` is not the interpreter you want.
+Omit `--with-tui` for the dependency-free CLI. The installer follows GitHub's `latest` release by default; append `--version v0.3.0` to pin a release. Set `PYTHON=/path/to/python3` when `/usr/bin/python3` is not the interpreter you want. This one-liner trusts the installer delivered by GitHub over HTTPS; the installer still verifies the downloaded wheel against the release's SHA-256 manifest.
 
 Each run builds a new environment under `~/.local/share/codex-socks-manager/venvs/`. A download, checksum, dependency, or preflight failure leaves the old entry points intact. Existing profiles, private bootstrap backups, and previous environments are retained. Keep `--with-tui` on upgrades; omitting it intentionally switches to a new CLI-only environment.
 

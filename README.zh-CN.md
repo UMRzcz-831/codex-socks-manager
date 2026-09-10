@@ -33,17 +33,10 @@ Codex SOCKS Manager 把代理配置、app-server 重启、诊断和更新恢复�
 推荐使用 Release 安装器。它会下载 GitHub latest 的 wheel、校验 SHA-256、创建版本化私有环境并运行预检，全部通过后才切换命令入口。
 
 ```bash
-install_dir=$(mktemp -d)
-curl -fL https://github.com/UMRzcz-831/codex-socks-manager/releases/latest/download/install.sh \
-  -o "$install_dir/install.sh"
-curl -fL https://github.com/UMRzcz-831/codex-socks-manager/releases/latest/download/SHA256SUMS \
-  -o "$install_dir/SHA256SUMS"
-(cd "$install_dir" && awk '$2 == "install.sh" { print }' SHA256SUMS | sha256sum -c -)
-sh "$install_dir/install.sh" --with-tui
-export PATH="$HOME/.local/bin:$PATH"
+curl -fsSL https://github.com/UMRzcz-831/codex-socks-manager/releases/latest/download/install.sh | sh -s -- --with-tui
 ```
 
-轻量版去掉 `--with-tui`。安装器默认跟随 GitHub `latest`；需要固定版本时传 `--version v0.3.0`。`/usr/bin/python3` 不是目标解释器时，可设置 `PYTHON=/path/to/python3`。
+轻量版去掉 `--with-tui`。安装器默认跟随 GitHub `latest`；需要固定版本时在命令末尾添加 `--version v0.3.0`。`/usr/bin/python3` 不是目标解释器时，可设置 `PYTHON=/path/to/python3`。这一行命令通过 HTTPS 信任 GitHub 下发的安装器；安装器仍会根据 Release 中的 SHA-256 清单校验下载的 wheel。
 
 每次安装都会在 `~/.local/share/codex-socks-manager/venvs/` 新建环境。下载、校验、依赖安装或预检失败都不会改动旧入口；已有配置、私有 bootstrap 备份和旧环境会保留。完整版升级时继续带 `--with-tui`，不带选项会主动切换到新的轻量 CLI 环境。
 
