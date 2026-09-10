@@ -1,16 +1,16 @@
 # Codex SOCKS Manager
 
-![立体漫画字样 no more codex 403 从显示 codex-socks 命令的终端面板中破壁而出](docs/assets/readme-hero.png)
+![立体漫画字样 no more codex 403 从显示 codex-socks 命令的终端面板中破壁而出](https://raw.githubusercontent.com/UMRzcz-831/codex-socks-manager/main/docs/assets/readme-hero.png)
 
 > no more codex 403
 
-[English](README.md) · [简体中文](README.zh-CN.md)
+[English](https://github.com/UMRzcz-831/codex-socks-manager/blob/main/README.md) · [简体中文](https://github.com/UMRzcz-831/codex-socks-manager/blob/main/README.zh-CN.md)
 
 Codex SOCKS Manager 把代理配置、app-server 重启、诊断和更新恢复收在一个 Linux 工具里。脚本可以使用零第三方运行依赖的 CLI；日常管理则可选装 Textual 界面。
 
 它解决的是代理传输问题，不能授予账号访问权、开放不支持的地区、修改 workspace 权限或绕过远端 ACL。slogan 是目标，不代表所有 403 都能修复。
 
-![Codex SOCKS Manager TUI 的代理表格与所选配置详情](docs/designs/tui-graphite/rendered/profiles-zh-CN-120x36.png)
+![Codex SOCKS Manager TUI 的代理表格与所选配置详情](https://raw.githubusercontent.com/UMRzcz-831/codex-socks-manager/main/docs/designs/tui-graphite/rendered/profiles-zh-CN-120x36.png)
 
 ## 功能概览
 
@@ -28,25 +28,53 @@ Codex SOCKS Manager 把代理配置、app-server 重启、诊断和更新恢复�
 
 环境要求：Linux、支持 venv/pip 的 Python 3.10+，以及已经安装的 Codex CLI。配置切换和 `check` 要求 Codex 支持 `doctor --json`；`safe-update` 还要求支持 `codex update`。
 
-| 版本 | 项目安装器 | 在长期保留的 Python 环境中使用 pip |
-| --- | --- | --- |
-| 轻量 CLI，无第三方运行依赖 | `./scripts/install.sh` | `python3 -m pip install .` |
-| CLI + Textual TUI | `./scripts/install.sh --with-tui` | `python3 -m pip install '.[tui]'` |
+### GitHub Release 安装器
 
-最省事的方式是使用受管安装器：
+推荐使用 Release 安装器。它会下载 GitHub latest 的 wheel、校验 SHA-256、创建版本化私有环境并运行预检，全部通过后才切换命令入口。
+
+```bash
+install_dir=$(mktemp -d)
+curl -fL https://github.com/UMRzcz-831/codex-socks-manager/releases/latest/download/install.sh \
+  -o "$install_dir/install.sh"
+curl -fL https://github.com/UMRzcz-831/codex-socks-manager/releases/latest/download/SHA256SUMS \
+  -o "$install_dir/SHA256SUMS"
+(cd "$install_dir" && awk '$2 == "install.sh" { print }' SHA256SUMS | sha256sum -c -)
+sh "$install_dir/install.sh" --with-tui
+export PATH="$HOME/.local/bin:$PATH"
+```
+
+轻量版去掉 `--with-tui`。安装器默认跟随 GitHub `latest`；需要固定版本时传 `--version v0.3.0`。`/usr/bin/python3` 不是目标解释器时，可设置 `PYTHON=/path/to/python3`。
+
+每次安装都会在 `~/.local/share/codex-socks-manager/venvs/` 新建环境。下载、校验、依赖安装或预检失败都不会改动旧入口；已有配置、私有 bootstrap 备份和旧环境会保留。完整版升级时继续带 `--with-tui`，不带选项会主动切换到新的轻量 CLI 环境。
+
+### 通过 pipx 从 PyPI 安装
+
+这种方式由 `pipx` 管理 Python 环境：
+
+```bash
+# 轻量 CLI
+pipx install codex-socks-manager
+
+# 或 CLI + TUI
+pipx install 'codex-socks-manager[tui]'
+
+# 两种版本安装后都执行一次
+codex-socks install
+```
+
+后续使用 `pipx upgrade codex-socks-manager` 更新管理器。pipx 不会保留本项目安装器提供的版本化回退环境。
+
+### 从源码安装
 
 ```bash
 git clone https://github.com/UMRzcz-831/codex-socks-manager.git
 cd codex-socks-manager
 ./scripts/install.sh --with-tui
-export PATH="$HOME/.local/bin:$PATH"
 ```
 
-轻量版去掉 `--with-tui` 即可。安装器每次都会在 `~/.local/share/codex-socks-manager/venvs/` 新建版本化环境，完成安装和预检后再切换入口。安装失败不会动旧入口；已有代理配置、私有 bootstrap 备份和旧环境都会保留。
+源码安装轻量版时去掉 `--with-tui`。普通 pip 重装不会移除已经安装的 extra；需要严格轻量时请使用新环境。
 
-完整版升级时继续带 `--with-tui`。不带选项重新运行会切换到新的轻量 CLI 环境。普通 pip 重装不会移除已装的 extra；需要严格轻量的 pip 安装时，请使用新环境。
-
-找到真实的 standalone、npm 或 pnpm Codex 后，安装器会用受管 launcher 替换 `~/.local/bin/codex`。自定义 launcher 请先备份。可通过 `PYTHON=/path/to/python3 ./scripts/install.sh` 指定解释器。使用 pip 安装后，还要在同一环境运行 `codex-socks install`。
+三种方式最后都会在找到真实的 standalone、npm 或 pnpm Codex 后安装受管的 `~/.local/bin/codex`。自定义 launcher 请先备份。
 
 ## 添加第一个配置
 
@@ -84,7 +112,7 @@ codex-socks add local socks5://127.0.0.1:1080
 
 界面支持鼠标、Tab、方向键、Enter、Page Up 和 Page Down。快捷键为 `a` 新增、`e` 编辑、`r` 刷新、`l` 切换语言、`q` 退出、`F2` 查看完整操作结果。在输入框中打字时，字母快捷键不会触发。会重启进程或替换数据的操作都要确认；操作和回滚结束前会阻止重复提交与普通退出。
 
-[查看四个页面、两种语言和两种终端尺寸的截图](docs/designs/tui-graphite/rendered/README.md)。这些截图由真实 Textual 应用配合一次性假配置生成，没有运行真实诊断或代理操作。
+[查看四个页面、两种语言和两种终端尺寸的截图](https://github.com/UMRzcz-831/codex-socks-manager/tree/main/docs/designs/tui-graphite/rendered)。这些截图由真实 Textual 应用配合一次性假配置生成，没有运行真实诊断或代理操作。
 
 ```bash
 codex-socks tui --lang zh-CN
@@ -163,7 +191,7 @@ codex-socks migrate-legacy \
 
 ## 开发
 
-项目协作约定见 [AGENTS.md](AGENTS.md)，漏洞报告方式见 [SECURITY.md](SECURITY.md)。
+项目协作约定见 [AGENTS.md](https://github.com/UMRzcz-831/codex-socks-manager/blob/main/AGENTS.md)，漏洞报告方式见 [SECURITY.md](https://github.com/UMRzcz-831/codex-socks-manager/blob/main/SECURITY.md)，GitHub/PyPI 发布步骤见 [release checklist](https://github.com/UMRzcz-831/codex-socks-manager/blob/main/docs/releasing.md)。
 
 ```bash
 python3 -m venv .venv
@@ -173,9 +201,9 @@ git config core.hooksPath .githooks
 .venv/bin/python -m pytest
 .venv/bin/python -m compileall -q src tests
 python3 scripts/check-secrets.py
-shellcheck .githooks/pre-commit scripts/install.sh
+shellcheck .githooks/pre-commit scripts/install.sh scripts/install-release.sh
 ```
 
 CI 在 Python 3.10 和 3.12 下分别运行轻量 CLI 与完整 TUI 任务。离线安装集成测试还需要通过 `CODEX_SOCKS_TEST_WHEELHOUSE` 指定本地 wheel 目录；未设置时只跳过这一项。
 
-项目采用 MIT 许可证，见 [LICENSE](LICENSE)。
+项目采用 MIT 许可证，见 [LICENSE](https://github.com/UMRzcz-831/codex-socks-manager/blob/main/LICENSE)。

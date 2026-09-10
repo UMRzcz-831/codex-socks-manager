@@ -20,7 +20,7 @@ Done means the requested result is present, applicable checks pass, and remainin
 | TUI, help, shared operations | [tui.py](src/codex_socks_manager/tui.py), [catalog.py](src/codex_socks_manager/catalog.py), [operations.py](src/codex_socks_manager/operations.py) |
 | Profile validation and persistence | [profiles.py](src/codex_socks_manager/profiles.py), [storage.py](src/codex_socks_manager/storage.py), [paths.py](src/codex_socks_manager/paths.py) |
 | Launcher, process lifecycle, diagnosis | [runtime.py](src/codex_socks_manager/runtime.py), [appserver.py](src/codex_socks_manager/appserver.py), [doctor.py](src/codex_socks_manager/doctor.py) |
-| Install, recovery, migration | [install.sh](scripts/install.sh), [recovery.py](src/codex_socks_manager/recovery.py), [migration.py](src/codex_socks_manager/migration.py) |
+| Install, release, recovery, migration | [source installer](scripts/install.sh), [Release installer](scripts/install-release.sh), [release workflow](.github/workflows/release.yml), [recovery.py](src/codex_socks_manager/recovery.py), [migration.py](src/codex_socks_manager/migration.py) |
 
 The shell installer uses versioned private virtual environments. Check packaging of TUI resources and failure preservation when changing [bootstrap.py](src/codex_socks_manager/bootstrap.py). TUI tests use Textual Pilot with temporary XDG paths and fake operations; never load real profiles for screenshots.
 
@@ -41,7 +41,7 @@ Use matching files under `tests/` for code changes. Select skills for the actual
 
 For documentation changes, check links, command accuracy, bilingual consistency, and `git diff --check`. Validate any changed OpenSpec artifacts with `openspec validate <change-name> --strict`. No new tests or production smoke run are needed for prose alone.
 
-For Python changes, use an isolated development environment described in README and run the affected tests with `.venv/bin/python -m pytest tests/<affected-test>.py`. For shell changes, run `shellcheck .githooks/pre-commit scripts/install.sh`. Expand to the full suite when the affected behavior crosses modules or a failure warrants it; do not repeat successful checks without a reason.
+For Python changes, use an isolated development environment described in README and run the affected tests with `.venv/bin/python -m pytest tests/<affected-test>.py`. For shell changes, run `shellcheck .githooks/pre-commit scripts/install.sh scripts/install-release.sh`. Expand to the full suite when the affected behavior crosses modules or a failure warrants it; do not repeat successful checks without a reason.
 
 Before committing or publishing, inspect the staged diff and run `python3 scripts/check-secrets.py`. The scanner is heuristic, so a pass does not authorize uploading real configuration. Never weaken it to admit a real value. Use `codex/` for new branches and focused conventional commit messages.
 

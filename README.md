@@ -1,16 +1,16 @@
 # Codex SOCKS Manager
 
-![Bold three-dimensional comic lettering reading no more codex 403 bursts through terminal panels showing codex-socks commands](docs/assets/readme-hero.png)
+![Bold three-dimensional comic lettering reading no more codex 403 bursts through terminal panels showing codex-socks commands](https://raw.githubusercontent.com/UMRzcz-831/codex-socks-manager/main/docs/assets/readme-hero.png)
 
 > no more codex 403
 
-[English](README.md) · [简体中文](README.zh-CN.md)
+[English](https://github.com/UMRzcz-831/codex-socks-manager/blob/main/README.md) · [简体中文](https://github.com/UMRzcz-831/codex-socks-manager/blob/main/README.zh-CN.md)
 
 Codex SOCKS Manager keeps proxy profiles, app-server restarts, diagnostics, and update recovery in one Linux tool. Use the dependency-free CLI in scripts or install the optional Textual interface for day-to-day management.
 
 It fixes proxy transport problems. It cannot grant account access, enable an unsupported region, change workspace permissions, or bypass a remote ACL. The slogan is a goal, not a promise that every 403 is fixable.
 
-![Codex SOCKS Manager TUI showing the profile table and selected-profile details](docs/designs/tui-graphite/rendered/profiles-en-120x36.png)
+![Codex SOCKS Manager TUI showing the profile table and selected-profile details](https://raw.githubusercontent.com/UMRzcz-831/codex-socks-manager/main/docs/designs/tui-graphite/rendered/profiles-en-120x36.png)
 
 ## At a glance
 
@@ -28,25 +28,53 @@ An ordinary `export ALL_PROXY=...` is fine for one shell. This project is for se
 
 Requirements: Linux, Python 3.10+ with venv/pip support, and an existing Codex CLI installation. Profile switching and `check` require a Codex version with `doctor --json`; `safe-update` also requires `codex update`.
 
-| Edition | Project installer | pip in a retained environment |
-| --- | --- | --- |
-| CLI, no third-party runtime dependencies | `./scripts/install.sh` | `python3 -m pip install .` |
-| CLI + Textual TUI | `./scripts/install.sh --with-tui` | `python3 -m pip install '.[tui]'` |
+### GitHub Release installer
 
-The managed installer is the simplest route:
+The recommended installer downloads the latest wheel from GitHub Releases, verifies its SHA-256, creates a versioned private environment, runs preflight checks, and only then switches the command entry points.
+
+```bash
+install_dir=$(mktemp -d)
+curl -fL https://github.com/UMRzcz-831/codex-socks-manager/releases/latest/download/install.sh \
+  -o "$install_dir/install.sh"
+curl -fL https://github.com/UMRzcz-831/codex-socks-manager/releases/latest/download/SHA256SUMS \
+  -o "$install_dir/SHA256SUMS"
+(cd "$install_dir" && awk '$2 == "install.sh" { print }' SHA256SUMS | sha256sum -c -)
+sh "$install_dir/install.sh" --with-tui
+export PATH="$HOME/.local/bin:$PATH"
+```
+
+Omit `--with-tui` for the dependency-free CLI. The installer follows GitHub's `latest` release by default; use `--version v0.3.0` to pin a release. Set `PYTHON=/path/to/python3` when `/usr/bin/python3` is not the interpreter you want.
+
+Each run builds a new environment under `~/.local/share/codex-socks-manager/venvs/`. A download, checksum, dependency, or preflight failure leaves the old entry points intact. Existing profiles, private bootstrap backups, and previous environments are retained. Keep `--with-tui` on upgrades; omitting it intentionally switches to a new CLI-only environment.
+
+### PyPI with pipx
+
+`pipx` owns the Python environment in this installation mode:
+
+```bash
+# Lightweight CLI
+pipx install codex-socks-manager
+
+# Or CLI + TUI
+pipx install 'codex-socks-manager[tui]'
+
+# Run once after either installation
+codex-socks install
+```
+
+Use `pipx upgrade codex-socks-manager` for later manager releases. Unlike the GitHub installer, pipx does not keep the project's versioned fallback environments.
+
+### Install from source
 
 ```bash
 git clone https://github.com/UMRzcz-831/codex-socks-manager.git
 cd codex-socks-manager
 ./scripts/install.sh --with-tui
-export PATH="$HOME/.local/bin:$PATH"
 ```
 
-For the lightweight edition, omit `--with-tui`. Each installer run builds a new versioned environment under `~/.local/share/codex-socks-manager/venvs/`, verifies it, then switches the entry points. A failed install leaves the old entry points intact. Existing profiles, private bootstrap backups, and previous environments are retained.
+Omit `--with-tui` for the lightweight source installation. A normal pip reinstall does not remove extras already present, so use a fresh environment when you need a strictly lightweight pip setup.
 
-Keep `--with-tui` on later upgrades if you want the full edition. Running the installer without it switches to a new CLI-only environment. A normal pip reinstall does not remove extras already present, so use a fresh environment when you need a strictly lightweight pip installation.
-
-The installer replaces `~/.local/bin/codex` with a managed launcher after finding the real standalone, npm, or pnpm Codex executable. Back up a custom launcher first. Use `PYTHON=/path/to/python3 ./scripts/install.sh` to select the interpreter. For a pip installation, run `codex-socks install` in the same environment after installing the package.
+All three routes eventually install `~/.local/bin/codex` as a managed launcher after finding the real standalone, npm, or pnpm Codex executable. Back up a custom launcher first.
 
 ## First profile
 
@@ -84,7 +112,7 @@ The graphite theme uses warm-white text, ice-blue focus, and orange or red only 
 
 Use the mouse, Tab, arrows, Enter, Page Up, and Page Down. Shortcuts are `a` add, `e` edit, `r` refresh, `l` language, `q` quit, and `F2` full operation result. Letter shortcuts are inactive while typing. Actions that restart processes or replace data require confirmation. Duplicate submission and normal exit are blocked until an operation and any rollback finish.
 
-[Browse screenshots for every page, both languages, and both terminal sizes](docs/designs/tui-graphite/rendered/README.md). They were rendered from the real Textual app with disposable fake profiles; no live diagnostic or proxy operation was used.
+[Browse screenshots for every page, both languages, and both terminal sizes](https://github.com/UMRzcz-831/codex-socks-manager/tree/main/docs/designs/tui-graphite/rendered). They were rendered from the real Textual app with disposable fake profiles; no live diagnostic or proxy operation was used.
 
 ```bash
 codex-socks tui --lang zh-CN
@@ -163,7 +191,7 @@ Never publish real proxy URLs, host details, credentials, snapshots, Doctor outp
 
 ## Development
 
-See [AGENTS.md](AGENTS.md) for project-specific guidance and [SECURITY.md](SECURITY.md) for vulnerability reports.
+See [AGENTS.md](https://github.com/UMRzcz-831/codex-socks-manager/blob/main/AGENTS.md) for project-specific guidance, [SECURITY.md](https://github.com/UMRzcz-831/codex-socks-manager/blob/main/SECURITY.md) for vulnerability reports, and the [release checklist](https://github.com/UMRzcz-831/codex-socks-manager/blob/main/docs/releasing.md) for GitHub/PyPI publishing.
 
 ```bash
 python3 -m venv .venv
@@ -173,9 +201,9 @@ git config core.hooksPath .githooks
 .venv/bin/python -m pytest
 .venv/bin/python -m compileall -q src tests
 python3 scripts/check-secrets.py
-shellcheck .githooks/pre-commit scripts/install.sh
+shellcheck .githooks/pre-commit scripts/install.sh scripts/install-release.sh
 ```
 
 CI runs Python 3.10 and 3.12 in separate CLI-only and TUI jobs. The offline installer integration test also needs a local wheel directory through `CODEX_SOCKS_TEST_WHEELHOUSE`; without it, that one test is skipped.
 
-Licensed under MIT. See [LICENSE](LICENSE).
+Licensed under MIT. See [LICENSE](https://github.com/UMRzcz-831/codex-socks-manager/blob/main/LICENSE).
