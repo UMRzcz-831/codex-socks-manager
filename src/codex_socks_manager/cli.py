@@ -92,10 +92,10 @@ def run(argv: list[str] | None = None, paths: Paths | None = None) -> int:
             if args.command is None:
                 root.print_help()
                 return 0
-            print(t("error: TUI is optional. From the project directory run ./scripts/install.sh --with-tui; "
-                    "for pip use the same Python environment: python -m pip install '.[tui]'.",
-                    "错误：TUI 为选装功能。在项目目录执行 ./scripts/install.sh --with-tui；"
-                    "pip 安装请在同一 Python 环境执行 python -m pip install '.[tui]'。"), file=sys.stderr)
+            print(t("error: TUI is optional. Rerun the GitHub or source installer with --with-tui, "
+                    "or reinstall codex-socks-manager[tui] in the same Python environment.",
+                    "错误：TUI 为选装功能。请用 --with-tui 重新运行 GitHub 或源码安装器，"
+                    "或在同一 Python 环境重装 codex-socks-manager[tui]。"), file=sys.stderr)
             return 2
         try:
             ManagerApp = load_tui()

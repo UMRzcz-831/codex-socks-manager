@@ -130,7 +130,7 @@ def test_missing_ui_is_safe(manager_paths, monkeypatch, capsys, lang):
     assert run(["--lang", lang], manager_paths) == 0
     assert run(["tui", "--lang", lang], manager_paths) == 2
     output = capsys.readouterr()
-    assert "--with-tui" in output.err and ".[tui]" in output.err
+    assert "--with-tui" in output.err and "codex-socks-manager[tui]" in output.err
     assert "Traceback" not in output.err
     assert not manager_paths.config.exists()
 

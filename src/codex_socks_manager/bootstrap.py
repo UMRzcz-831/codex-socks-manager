@@ -125,7 +125,7 @@ def main() -> None:
         print("CLI + TUI installed / 已安装完整界面。Run codex-socks tui; keep --with-tui when upgrading.")
     else:
         print("CLI installed / 已安装轻量 CLI。Run codex-socks --help. "
-              "To add TUI / 补装界面: ./scripts/install.sh --with-tui (from the project directory / 在项目目录执行).")
+              "To add TUI / 补装界面: rerun the installer with --with-tui / 用 --with-tui 重新运行安装器。")
 
 
 if __name__ == "__main__":

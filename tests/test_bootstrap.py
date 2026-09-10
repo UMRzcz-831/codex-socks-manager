@@ -4,6 +4,8 @@ import os
 import subprocess
 import sys
 import json
+import hashlib
+import shutil
 from pathlib import Path
 
 import pytest
@@ -147,6 +149,21 @@ asyncio.run(test())
     run([installed_python, "-c", "from importlib.util import find_spec; "
          "assert find_spec('rich') is None; assert find_spec('textual') is None"])
 
+    release = tmp_path / "release"
+    release.mkdir()
+    source_wheel = next(Path(wheelhouse).glob("codex_socks_manager-*-py3-none-any.whl"))
+    release_wheel = release / source_wheel.name
+    shutil.copy2(source_wheel, release_wheel)
+    digest = hashlib.sha256(release_wheel.read_bytes()).hexdigest()
+    (release / "SHA256SUMS").write_text(f"{digest}  {release_wheel.name}\n")
+    env["CODEX_SOCKS_RELEASE_BASE_URL"] = release.as_uri()
+    run(["/bin/sh", str(project / "scripts/install-release.sh"), "--with-tui"])
+    assert len(list((root / "venvs").iterdir())) == 4
+    assert json.loads(run([manager, "list", "--json"])) == payload
+    installed_python = Settings.load(manager_paths.settings).manager_python
+    run([installed_python, "-c", "from importlib.util import find_spec; "
+         "assert find_spec('rich') is not None; assert find_spec('textual') is not None"])
+
 
 @pytest.mark.parametrize("args,code", [(["--help"], 0), (["--invalid"], 2)])
 def test_installer_arguments_no_side_effects(manager_paths, bootstrap_env, args, code):
@@ -156,4 +173,51 @@ def test_installer_arguments_no_side_effects(manager_paths, bootstrap_env, args,
                             env=dict(os.environ, PYTHON=sys.executable), capture_output=True, text=True)
     assert result.returncode == code
     assert "--with-tui" in result.stdout + result.stderr
+    assert not root.exists() and not manager_paths.config.exists()
+
+
+@pytest.mark.parametrize(
+    "args,code,expected",
+    [
+        (["--help"], 0, "--with-tui"),
+        (["--invalid"], 2, "--with-tui"),
+        (["--version"], 2, "Missing value"),
+        (["--version", "bad/version"], 2, "Invalid release"),
+    ],
+)
+def test_release_installer_arguments_no_side_effects(manager_paths, bootstrap_env, args, code, expected):
+    _, root = bootstrap_env
+    project = Path(__file__).resolve().parents[1]
+    result = subprocess.run(
+        ["/bin/sh", str(project / "scripts/install-release.sh"), *args],
+        env=dict(os.environ, PYTHON=sys.executable),
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == code
+    assert expected in result.stdout + result.stderr
+    assert not root.exists() and not manager_paths.config.exists()
+
+
+def test_release_installer_rejects_checksum_before_bootstrap(manager_paths, bootstrap_env, tmp_path):
+    _, root = bootstrap_env
+    project = Path(__file__).resolve().parents[1]
+    release = tmp_path / "release"
+    release.mkdir()
+    wheel = release / "codex_socks_manager-0.3.0-py3-none-any.whl"
+    wheel.write_bytes(b"not a wheel")
+    (release / "SHA256SUMS").write_text(f"{'0' * 64}  {wheel.name}\n")
+    env = dict(
+        os.environ,
+        PYTHON=sys.executable,
+        CODEX_SOCKS_RELEASE_BASE_URL=release.as_uri(),
+    )
+    result = subprocess.run(
+        ["/bin/sh", str(project / "scripts/install-release.sh"), "--version", "0.3.0"],
+        env=env,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 1
+    assert "SHA-256 mismatch" in result.stderr
     assert not root.exists() and not manager_paths.config.exists()

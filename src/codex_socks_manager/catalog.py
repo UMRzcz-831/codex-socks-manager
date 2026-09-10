@@ -93,8 +93,8 @@ COMMANDS = (
             ("codex-socks migrate-legacy", "codex-socks migrate-legacy --jp /path/to/jp.env --us /path/to/us.env"),
             (("--jp", "Legacy JP file path.", "旧 JP 文件路径。"), ("--us", "Legacy US file path.", "旧 US 文件路径。"))),
     Command("tui", "", ("Open the optional interactive manager.", "打开选装的交互管理界面。"),
-            ("Requires an interactive terminal and optional UI dependencies. From the project directory: ./scripts/install.sh --with-tui; for pip use the same environment: python -m pip install '.[tui]'. Without UI dependencies, invoking with no command shows help. Language changes inside the UI last for this session.",
-             "需要交互终端和选装依赖。在项目目录执行 ./scripts/install.sh --with-tui；pip 安装在同一环境执行 python -m pip install '.[tui]'。未装界面时无参数显示帮助。界面内切换语言仅影响本次会话。"),
+            ("Requires an interactive terminal and optional UI dependencies. Rerun the GitHub or source installer with --with-tui, or install the tui extra in the same Python environment. Without UI dependencies, invoking with no command shows help. Language changes inside the UI last for this session.",
+             "需要交互终端和选装依赖。用 --with-tui 重新运行 GitHub 或源码安装器，或在同一 Python 环境安装 tui extra。未装界面时无参数显示帮助。界面内切换语言仅影响本次会话。"),
             ("codex-socks tui", "codex-socks", "codex-socks tui --lang zh-CN")),
 )
 BY_NAME = {command.name: command for command in COMMANDS}
