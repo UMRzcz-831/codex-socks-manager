@@ -4,6 +4,15 @@ on:
   push:
     tags:
       - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag to publish
+        required: true
+        type: string
+
+env:
+  RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
 
 permissions:
   contents: read
@@ -13,6 +22,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.RELEASE_TAG }}
       - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
@@ -24,7 +35,7 @@ jobs:
           import pathlib
           import tomllib
 
-          expected = os.environ["GITHUB_REF_NAME"].removeprefix("v")
+          expected = os.environ["RELEASE_TAG"].removeprefix("v")
           project = tomllib.loads(pathlib.Path("pyproject.toml").read_text())["project"]["version"]
           namespace = {}
           exec(pathlib.Path("src/codex_socks_manager/__init__.py").read_text(), namespace)
@@ -74,10 +85,14 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            gh release upload "$GITHUB_REF_NAME" release-assets/* --clobber --repo "$GITHUB_REPOSITORY"
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" release-assets/* --clobber --repo "$GITHUB_REPOSITORY"
           else
-            gh release create "$GITHUB_REF_NAME" release-assets/* +              --verify-tag +              --generate-notes +              --title "codex-socks-manager $GITHUB_REF_NAME" +              --repo "$GITHUB_REPOSITORY"
+            gh release create "$RELEASE_TAG" release-assets/* \
+              --verify-tag \
+              --generate-notes \
+              --title "codex-socks-manager $RELEASE_TAG" \
+              --repo "$GITHUB_REPOSITORY"
           fi
 
   publish-pypi:
