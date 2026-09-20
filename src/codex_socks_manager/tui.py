@@ -238,6 +238,20 @@ class ManagerApp(App):
                         yield self.button("check", "Run Doctor", "运行 Doctor", "primary")
                     with Pane(id="diagnostic-side", classes="panel detail-pane"):
                         yield Detail("", id="diagnostic-note")
+            with TabPane(self.t("Scope", "作用域"), id="scope-page"):
+                with Pane(id="scope-layout", classes="split"):
+                    with Vertical(id="scope-main", classes="panel primary-pane"):
+                        with Horizontal(id="scope-controls"):
+                            yield Select((("Codex CLI", "codex"), ("Claude Code CLI", "claude")),
+                                         value="codex", allow_blank=False, id="scope-client")
+                            yield Select(((self.t("Managed", "受管启动"), "managed"),
+                                          (self.t("Direct", "直接启动"), "direct")),
+                                         value="managed", allow_blank=False, id="scope-entry")
+                        yield Input(placeholder=self.t("Optional target URL", "可选目标 URL"), id="scope-target")
+                        yield DataTable(id="scope-variables", cursor_type="row")
+                        yield self.button("scope", "Refresh scope", "刷新作用域", "primary")
+                    with Pane(id="scope-side", classes="panel detail-pane"):
+                        yield Detail("", id="scope-detail")
             with TabPane(self.t("Maintenance", "维护"), id="maintenance-page"):
                 with Pane(id="maintenance-layout", classes="panel"):
                     yield Static("", id="maintenance-note")
@@ -284,6 +298,8 @@ class ManagerApp(App):
             self.refresh_profiles()
         elif active == "commands-page":
             self.refresh_commands()
+        elif active == "scope-page":
+            self.refresh_scope()
 
     @on(TabbedContent.TabActivated)
     def page_activated(self) -> None:
@@ -312,20 +328,22 @@ class ManagerApp(App):
         pages = self.query_one("#pages", TabbedContent)
         for page, en, zh in (
             ("profiles", "Profiles", "代理管理"), ("diagnostics", "Diagnostics", "诊断"),
-            ("maintenance", "Maintenance", "维护"), ("commands", "Commands", "命令手册")):
+            ("scope", "Scope", "作用域"), ("maintenance", "Maintenance", "维护"),
+            ("commands", "Commands", "命令手册")):
             pages.get_tab(f"{page}-page").label = self.t(en, zh)
         labels = {
             "add": ("Add", "新增"), "edit": ("Edit", "编辑"), "use": ("Apply", "应用"),
             "off": ("Off", "关闭"), "del": ("Delete", "删除"), "check": ("Run Doctor", "运行 Doctor"),
             "install": ("Repair launcher", "修复 launcher"), "backup": ("Backup", "备份"),
             "restore": ("Restore", "恢复"), "safe-update": ("Safe update", "安全更新"),
-            "migrate-legacy": ("Import legacy", "导入旧配置"),
+            "migrate-legacy": ("Import legacy", "导入旧配置"), "scope": ("Refresh scope", "刷新作用域"),
         }
         for command, label in labels.items():
             self.query_one(f"#op-{command}", Button).label = "[" + self.t(*label) + "]"
         for widget, en, zh in (
             ("profiles", "Profiles", "代理配置"), ("profile-side", "Selected profile", "所选配置"),
             ("diagnostic-main", "Check results", "检查结果"), ("diagnostic-side", "Interpretation", "说明"),
+            ("scope-main", "Launch variables", "启动变量"), ("scope-side", "Connection coverage", "连接覆盖"),
             ("maintenance-layout", "Maintenance", "维护操作"), ("command-main", "Commands", "命令目录"),
             ("command-side", "Command details", "命令详情")):
             self.query_one(f"#{widget}").border_title = self.t(en, zh)
@@ -338,6 +356,7 @@ class ManagerApp(App):
             ("update-hint", "Update with validation; import without changing the active profile.", "更新后验收；导入不改变活动配置。")):
             self.query_one(f"#{widget}", Static).update(self.t(en, zh))
         self.query_one("#command-filter", Input).placeholder = self.t("Filter commands…", "筛选命令…")
+        self.query_one("#scope-target", Input).placeholder = self.t("Optional target URL", "可选目标 URL")
         self.query_one("#keys", Static).update(self.t(
             "a Add  e Edit  r Refresh  l 中文  q Quit  F2 Result | Tab / arrows / Enter",
             "a 新增 e 编辑 r 刷新 l English q 退出 F2 结果 | Tab / 方向键 / Enter"))
@@ -348,6 +367,7 @@ class ManagerApp(App):
             "Doctor categories are diagnostic hints. Account, region, workspace and ACL restrictions still apply.",
             "Doctor 分类是排查线索。账号、地区、workspace 和 ACL 限制仍然适用。"))
         self.refresh_profiles()
+        self.refresh_scope()
         self.refresh_commands()
         self.render_diagnostics()
         self.render_status()
@@ -355,10 +375,52 @@ class ManagerApp(App):
     def action_refresh(self) -> None:
         if not self.busy:
             self.refresh_profiles()
+            self.refresh_scope()
             # Local refresh cannot attest that a previous diagnostic is still current.
             if self.last_check:
                 self.check_stale = True
                 self.render_diagnostics()
+
+    @on(Select.Changed, "#scope-client")
+    @on(Select.Changed, "#scope-entry")
+    def scope_selection_changed(self) -> None:
+        if self.is_mounted:
+            self.refresh_scope()
+
+    def refresh_scope(self) -> None:
+        if not self.query("#scope-variables"):
+            return
+        client = str(self.query_one("#scope-client", Select).value)
+        entry = str(self.query_one("#scope-entry", Select).value)
+        target = self.query_one("#scope-target", Input).value.strip() or None
+        try:
+            report = self.manager.scope(client, entry, target)
+        except (ValueError, OSError) as error:
+            self.query_one("#scope-detail", Static).update(Text(
+                self.t("Unable to build scope: ", "无法生成作用域：") + safe_error(error), style=COLORS["error"]))
+            return
+        table = self.query_one("#scope-variables", DataTable)
+        table.clear(columns=True)
+        for label in (self.t("Variable", "变量"), self.t("Parent", "父环境"),
+                      self.t("Launch", "启动值"), self.t("Source", "来源")):
+            table.add_column(label)
+        for item in report["variables"]:
+            table.add_row(str(item["name"]), str(item["inherited"]), str(item["launch"]),
+                          str(item["source"]), key=str(item["name"]))
+        policy = report["policy"]
+        route = report["route_prediction"]
+        detail = Text()
+        detail.append(self.t("Policy", "策略") + f": {policy['mode']} {policy['profile']}\n")
+        detail.append(self.t("Target route", "目标路径") + f": {route['status']}")
+        if route["matched_rule"]:
+            detail.append(f" ({route['matched_rule']})")
+        detail.append("\n\n" + self.t("Connection coverage", "连接覆盖") + "\n", style="bold")
+        for name, status in report["connectivity"].items():
+            detail.append(f"{name}: {status}\n")
+        detail.append("\n" + self.t(
+            "Configured does not mean verified. Official connectors may run through client or cloud-managed paths.",
+            "已配置不等于已验证。官方连接器可能走客户端或云端管理路径。"))
+        self.query_one("#scope-detail", Static).update(detail)
 
     def refresh_profiles(self) -> None:
         try:
@@ -478,6 +540,10 @@ class ManagerApp(App):
 
     def request_operation(self, command: str) -> None:
         if self.busy:
+            return
+        if command == "scope":
+            self.refresh_scope()
+            self.set_status(("Scope refreshed; network was not tested.", "作用域已刷新；未进行网络测试。"))
             return
         if command in {"edit", "use", "del"} and not self.selected_name:
             return

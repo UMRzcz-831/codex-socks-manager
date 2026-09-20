@@ -45,6 +45,12 @@ Button:disabled { opacity: 1; color: $g-muted; text-opacity: 100%; }
 #diagnostics, #diagnostic-note, #maintenance-note { height: auto; margin-bottom: 1; }
 #diagnostic-note, #maintenance-note { color: $g-muted; }
 #diagnostic-main, #diagnostic-side { padding: 1; }
+#scope-controls { height: 3; }
+#scope-controls Select { width: 1fr; }
+#scope-entry { margin-left: 1; }
+#scope-target { margin: 0; }
+#scope-variables { height: 1fr; min-height: 7; }
+#scope-detail { height: auto; }
 #maintenance-layout { height: 1fr; }
 .maintenance-group { height: auto; margin-bottom: 1; }
 .section-title { height: 1; text-style: bold; color: $g-text; }

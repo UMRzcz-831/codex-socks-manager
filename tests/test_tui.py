@@ -26,7 +26,7 @@ async def test_navigation_language_and_table(manager_paths, size, lang):
         assert len(table.columns) == 4 and table.row_count == 1
         assert "example-password" not in str(table.get_row("office"))
         assert app.has_class("compact") == (size[0] < 100)
-        for page in ("diagnostics", "maintenance", "commands", "profiles"):
+        for page in ("diagnostics", "scope", "maintenance", "commands", "profiles"):
             app.query_one("#pages", TabbedContent).active = f"{page}-page"
             await pilot.pause()
             assert app.query_one("#pages", TabbedContent).active == f"{page}-page"
@@ -276,3 +276,24 @@ async def test_default_diagnostics_and_confirm_focus(manager_paths):
         assert app.focused.id == "cancel"
         await pilot.press("escape")
         assert manager.active == "off"
+
+
+@pytest.mark.asyncio
+async def test_scope_page_separates_launch_plan_from_connection_verification(manager_paths):
+    manager = Manager(manager_paths)
+    manager.store.add("office", "http://proxy.example:8080")
+    manager.store.set_active("office")
+    app = ManagerApp(manager_paths, "zh-CN", manager=manager)
+    async with app.run_test(size=(120, 36)) as pilot:
+        app.query_one("#pages", TabbedContent).active = "scope-page"
+        await pilot.pause()
+        table = app.query_one("#scope-variables", DataTable)
+        assert table.row_count == 8
+        detail = str(app.query_one("#scope-detail", Static).render())
+        assert "configured_not_verified" in detail
+        assert "official_connectors" in detail and "not_verified" in detail
+        app.query_one("#scope-client", Select).value = "claude"
+        app.query_one("#scope-target", Input).value = "https://api.deepseek.example"
+        app.request_operation("scope")
+        await pilot.pause()
+        assert "未进行网络测试" in app.status_message[1]
