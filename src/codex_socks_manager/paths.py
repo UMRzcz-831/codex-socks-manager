@@ -14,6 +14,7 @@ class Paths:
     launcher: Path
     lock: Path
     settings: Path
+    clients: Path
 
     @classmethod
     def discover(cls, env: dict[str, str] | None = None) -> "Paths":
@@ -30,5 +31,5 @@ class Paths:
             launcher=home / ".local/bin/codex",
             lock=state / "manager.lock",
             settings=config / "config.toml",
+            clients=config / "clients.json",
         )
-

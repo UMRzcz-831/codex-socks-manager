@@ -55,7 +55,8 @@ def backup(paths: Paths, label: str = "snapshot", codex_config: Path | None = No
     with exclusive_lock(paths.lock):
         secure_dir(target)
         files: dict[str, str] = {}
-        sources = [(paths.settings, "manager/config.toml"), (paths.launcher, "launcher/codex")]
+        sources = [(paths.settings, "manager/config.toml"), (paths.clients, "manager/clients.json"),
+                   (paths.launcher, "launcher/codex")]
         for profile in sorted(paths.profiles.glob("*.conf")):
             sources.append((profile, f"manager/profiles/{profile.name}"))
         if codex_config and codex_config.exists():
@@ -120,6 +121,11 @@ def restore(paths: Paths, snapshot: Path | None = None, restart: bool = True, pr
             (paths.profiles / name).unlink()
         for source in snapshot_profiles.glob("*.conf") if snapshot_profiles.exists() else []:
             _copy_file(source, paths.profiles / source.name)
+        clients = selected / "manager/clients.json"
+        if clients.exists():
+            _copy_file(clients, paths.clients)
+        else:
+            paths.clients.unlink(missing_ok=True)
         launcher = selected / "launcher/codex"
         if launcher.exists():
             _copy_file(launcher, paths.launcher)

@@ -11,6 +11,7 @@ from codex_socks_manager.doctor import CheckResult
 from codex_socks_manager.recovery import backup, restore, safe_update, verify_snapshot
 from codex_socks_manager.runtime import CodexInstall, install_launcher
 from codex_socks_manager.storage import Settings
+from codex_socks_manager.clients import ClientPolicyStore
 
 
 def make_codex(path: Path) -> Path:
@@ -27,11 +28,13 @@ def test_backup_restore_preserves_new_binary_and_profiles(manager_paths, tmp_pat
     store = ProfileStore(manager_paths)
     store.add("jp", "http://proxy.test:8080")
     store.set_active("jp")
+    ClientPolicyStore(manager_paths).add_bypass("claude", "api.example.test")
     snapshot = backup(manager_paths, "known-good")
     settings = Settings.load(manager_paths.settings)
     settings.real_codex = str(new_binary)
     manager_paths.settings.write_text(settings.dump(), encoding="utf-8")
     store.add("us", "socks5h://proxy.test:1080")
+    ClientPolicyStore(manager_paths).add_bypass("claude", "other.example.test")
     manager_paths.launcher.unlink()
     restore(manager_paths, snapshot.path, restart=False)
     restored = Settings.load(manager_paths.settings)
@@ -41,6 +44,7 @@ def test_backup_restore_preserves_new_binary_and_profiles(manager_paths, tmp_pat
     with pytest.raises(FileNotFoundError):
         store.get("us")
     assert manager_paths.launcher.exists()
+    assert ClientPolicyStore(manager_paths).get("claude").bypass == ["api.example.test"]
 
 
 def test_snapshot_checksum_failure(manager_paths, tmp_path):

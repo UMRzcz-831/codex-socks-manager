@@ -16,6 +16,8 @@ from .progress import Progress, emit
 from .recovery import backup, restore, safe_update
 from .runtime import install_launcher
 from .storage import Settings
+from .scope import scope_report
+from .clients import ClientPolicyStore
 
 
 def switch(paths: Paths, name: str, restart: bool = True, progress: Progress | None = None) -> None:
@@ -88,6 +90,9 @@ class Manager:
     def snapshots(self) -> list[Path]:
         return sorted((path.parent for path in self.paths.backups.glob("*/manifest.json")), reverse=True)
 
+    def scope(self, client: str, entry: str = "managed", target: str | None = None):
+        return scope_report(self.paths, client, entry, target)
+
     def execute(self, command: str, *, name: str = "", url: str | None = None,
                 force: bool = False, restart: bool = True, snapshot: Path | None = None,
                 jp: Path | None = None, us: Path | None = None, progress: Progress | None = None):
@@ -106,6 +111,9 @@ class Manager:
         elif command in {"use", "off"}:
             switch(self.paths, name if command == "use" else "off", restart, progress)
         elif command == "del":
+            claude = ClientPolicyStore(self.paths).get("claude")
+            if claude.mode == "profile" and claude.profile == name:
+                raise PermissionError("profile is selected by Claude Code; change its policy before deleting")
             if self.active == name and force:
                 switch(self.paths, "off", True, progress)
             self.store.delete(name)

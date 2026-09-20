@@ -92,6 +92,23 @@ def print_profiles(profiles: list[dict[str, object]], lang: str) -> None:
         print(t("No profiles. Add one with: codex-socks add office", "暂无配置。可执行：codex-socks add office"))
 
 
+def print_scope(report: dict[str, object], lang: str) -> None:
+    t = lambda en, zh: translated(lang, en, zh)
+    print(f"{t('Client', '客户端')}: {report['client']}  {t('Entry', '入口')}: {report['entry']}")
+    print(t("Observation: current process snapshot; network not tested.", "观测：当前进程快照；未进行网络测试。"))
+    rows = [(str(item["name"]), str(item["inherited"]), str(item["launch"]), str(item["source"]))
+            for item in report["variables"]]
+    print(plain_table(tuple(t(en, zh) for en, zh in (
+        ("Variable", "变量"), ("Parent", "父环境"), ("Launch", "启动值"), ("Source", "来源"))), rows))
+    route = report["route_prediction"]
+    if route["status"] != "not_requested":
+        print(f"{t('Target route', '目标路径')}: {route['status']}"
+              + (f" ({route['matched_rule']})" if route["matched_rule"] else ""))
+    coverage = report["connectivity"]
+    print(plain_table((t("Connection", "连接"), t("Status", "状态")),
+                      [(name, str(status)) for name, status in coverage.items()]))
+
+
 def safe_error(error: object) -> str:
     """Treat diagnostics as plain text and redact URL userinfo, even for invalid URLs."""
     message = str(error)

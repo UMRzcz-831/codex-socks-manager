@@ -13,7 +13,9 @@ from pathlib import Path
 from .catalog import COMMANDS, language, translated
 from .operations import Manager, edit_in_editor as _edit, switch as _switch
 from .paths import Paths
-from .presentation import print_help, print_profiles, safe_error
+from .clients import ClientPolicy, ClientPolicyStore
+from .presentation import print_help, print_profiles, print_scope, safe_error
+from .scope import exec_client, scope_report
 
 
 class HelpParser(argparse.ArgumentParser):
@@ -51,6 +53,31 @@ def parser(lang: str | None = None) -> argparse.ArgumentParser:
             sub.add_argument(name, **kwargs)
         if entry.name in {"use", "off"}:
             sub.add_argument("--no-restart", action="store_true", help=argparse.SUPPRESS)
+        if entry.name == "scope":
+            sub.add_argument("--client", choices=("codex", "claude"), required=True)
+            sub.add_argument("--entry", choices=("direct", "managed"), default="managed")
+            sub.add_argument("--target")
+            sub.add_argument("--json", action="store_true")
+        elif entry.name == "policy":
+            actions = sub.add_subparsers(dest="policy_action", required=True)
+            setting = actions.add_parser("set", add_help=False)
+            setting.add_argument("--client", choices=("codex", "claude"), required=True)
+            setting.add_argument("--mode", choices=("inherit", "profile", "off"), required=True)
+            setting.add_argument("--profile", default="")
+        elif entry.name == "bypass":
+            actions = sub.add_subparsers(dest="bypass_action", required=True)
+            for action in ("add", "remove", "list"):
+                child = actions.add_parser(action, add_help=False)
+                child.add_argument("--client", choices=("codex", "claude"), required=True)
+                if action != "list":
+                    child.add_argument("host")
+        elif entry.name == "run":
+            sub.add_argument("--client", choices=("codex", "claude"), required=True)
+            modes = sub.add_mutually_exclusive_group()
+            modes.add_argument("--profile")
+            modes.add_argument("--inherit", action="store_true")
+            modes.add_argument("--off", action="store_true")
+            sub.add_argument("client_args", nargs=argparse.REMAINDER)
     return root
 
 
@@ -105,7 +132,45 @@ def run(argv: list[str] | None = None, paths: Paths | None = None) -> int:
             return 2
         ManagerApp(paths or Paths.discover(), lang=lang).run()
         return 0
-    manager = Manager(paths or Paths.discover())
+    selected_paths = paths or Paths.discover()
+    if args.command == "scope":
+        report = scope_report(selected_paths, args.client, args.entry, args.target)
+        if args.json:
+            print(json.dumps(report, indent=2))
+        else:
+            print_scope(report, lang)
+        return 0
+    if args.command == "policy":
+        if args.client == "codex" and args.mode == "inherit":
+            raise ValueError("Codex policy supports profile or off; use direct entry to inspect inherited variables")
+        if (args.mode == "profile") != bool(args.profile):
+            raise ValueError("--profile is required only when --mode profile")
+        policy = ClientPolicyStore(selected_paths).set(args.client, args.mode, args.profile)
+        print(t("saved policy: ", "已保存策略：") + f"{args.client} {policy.mode} {policy.profile}".rstrip())
+        return 0
+    if args.command == "bypass":
+        store = ClientPolicyStore(selected_paths)
+        if args.bypass_action == "add":
+            policy = store.add_bypass(args.client, args.host)
+        elif args.bypass_action == "remove":
+            policy = store.remove_bypass(args.client, args.host)
+        else:
+            policy = store.get(args.client)
+        if policy.bypass:
+            print("\n".join(policy.bypass))
+        return 0
+    if args.command == "run":
+        override = None
+        if args.profile:
+            override = ClientPolicy("profile", args.profile)
+        elif args.inherit:
+            override = ClientPolicy("inherit")
+        elif args.off:
+            override = ClientPolicy("off")
+        client_args = args.client_args[1:] if args.client_args[:1] == ["--"] else args.client_args
+        exec_client(selected_paths, args.client, client_args, policy=override)
+        return 0
+    manager = Manager(selected_paths)
     if args.command == "list":
         profiles = manager.store.list()
         if args.json:
