@@ -1,6 +1,6 @@
 # Textual 实际渲染验收
 
-这些是 2026-09-08 从当前 Textual 实现导出的界面，不是 imagegen 原型。全部使用临时 XDG 目录、回环／保留域名和禁用真实操作的 PreviewManager；没有加载用户配置。图中的终端窗口装饰来自截图导出器，不属于应用布局。
+这些是 2026-09-20 从当前 Textual 实现导出的界面，不是 imagegen 原型。全部使用临时 XDG 目录、回环／保留域名和禁用真实操作的 PreviewManager；没有加载用户配置。图中的终端窗口装饰来自截图导出器，不属于应用布局。
 
 ## 页面索引
 
@@ -8,6 +8,7 @@
 | --- | --- | --- | --- | --- |
 | 代理 | [PNG](profiles-zh-CN-80x24.png) | [PNG](profiles-zh-CN-120x36.png) | [PNG](profiles-en-80x24.png) | [PNG](profiles-en-120x36.png) |
 | 诊断 | [PNG](diagnostics-zh-CN-80x24.png) | [PNG](diagnostics-zh-CN-120x36.png) | [PNG](diagnostics-en-80x24.png) | [PNG](diagnostics-en-120x36.png) |
+| 作用域 | [PNG](scope-zh-CN-80x24.png) | [PNG](scope-zh-CN-120x36.png) | [PNG](scope-en-80x24.png) | [PNG](scope-en-120x36.png) |
 | 维护 | [PNG](maintenance-zh-CN-80x24.png) | [PNG](maintenance-zh-CN-120x36.png) | [PNG](maintenance-en-80x24.png) | [PNG](maintenance-en-120x36.png) |
 | 手册 | [PNG](commands-zh-CN-80x24.png) | [PNG](commands-zh-CN-120x36.png) | [PNG](commands-en-80x24.png) | [PNG](commands-en-120x36.png) |
 
@@ -33,7 +34,7 @@
 ## 验收记录
 
 - 布局：宽屏代理／手册双栏，窄屏上下排列；常驻一行状态和一行快捷键。Pilot 往返缩放通过，宽屏代理分栏偏差在设计比例 65% 的 10% 以内，测量结果在 [manifest.json](manifest.json)。
-- 组件：四列代理表、三列手册表、可滚动详情、表单和确认窗口。`>` 光标选择与 `* 当前` 独立；复选框使用 `[ ]`／`[x]`，不是只换颜色。
+- 组件：四列代理表、四列作用域变量表、三列手册表、可滚动详情、表单和确认窗口。`>` 光标选择与 `* 当前` 独立；复选框使用 `[ ]`／`[x]`，不是只换颜色。
 - 内容：代理地址与命令示例允许换行；长错误用 F2 打开完整结果，Tab／方向键／Page Up／Page Down 可查看。窄屏超出区域的内容需要滚动，不能把首屏截图当成所有内容的总览。
 - 安全：初始诊断为尚未检查，旧结果标过期；表单默认隐藏 URL；取消不执行，保存编辑不应用，操作与回滚期间禁止重复提交／普通退出。
 - 视觉：按 designing-tuis 的 P0→P4 顺序修复了切页焦点回跳、宽度溢出、缩放断点和默认复选框状态问题，再统一边框与间距。目标尺寸中未发现未解决的布局或组件级问题。
@@ -55,7 +56,7 @@
 
 ### 自动验证与限制
 
-Python 3.12 本地隔离验证：CLI 环境 100 项通过；完整环境 137 项通过；末轮页面调整后 20 项 TUI 测试再次通过。包括离线 CLI→TUI→CLI 安装、失败保留入口、全部命令、JSON、后台操作和恢复测试。
+Python 3.12 本地隔离验证覆盖 CLI 与完整 TUI 环境，包括离线 CLI→TUI→CLI 安装、失败保留入口、全部命令、作用域 JSON、后台操作和恢复测试。
 
 已运行 secrets 扫描、shellcheck、compileall、diff 空白检查和 OpenSpec 严格校验。校验器提示三个主规格尚未同步：需要先处理前序 `add-textual-tui-and-command-tables`，再归档本变更；本次不归档。
 

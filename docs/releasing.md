@@ -23,7 +23,7 @@ The matching GitHub environment must also exist. It needs no secrets; environmen
 1. Update `project.version` in `pyproject.toml` and `__version__` in `src/codex_socks_manager/__init__.py`.
 2. Run the relevant local tests and push the version commit.
 3. Wait for the main CI matrix to pass.
-4. Create an annotated tag with the same version, for example `v0.3.0`, and push it.
+4. Create an annotated tag with the same version, for example `v0.4.0`, and push it.
 5. Check the Release workflow. Do not upload a different wheel to either registry.
 
 The GitHub publishing job is safe to rerun because it replaces existing assets. PyPI rejects a filename or version that has already been published. After a first-publication setup failure, rerun the failed PyPI job; do not republish a version that already succeeded.

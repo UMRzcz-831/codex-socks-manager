@@ -15,7 +15,7 @@ Install the latest GitHub Release (default), or a pinned release.
 
 Options:
   --with-tui          Install Textual and Rich.
-  --version VERSION   Release such as v0.3.0 or 0.3.0.
+  --version VERSION   Release such as v0.4.0 or 0.4.0.
   -h, --help          Show this help.
 EOF
 }

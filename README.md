@@ -37,7 +37,7 @@ The recommended installer downloads the latest wheel from GitHub Releases, verif
 curl -fsSL https://github.com/UMRzcz-831/codex-socks-manager/releases/latest/download/install.sh | sh -s -- --with-tui
 ```
 
-Omit `--with-tui` for the dependency-free CLI. The installer follows GitHub's `latest` release by default; append `--version v0.3.0` to pin a release. Set `PYTHON=/path/to/python3` when `/usr/bin/python3` is not the interpreter you want. This one-liner trusts the installer delivered by GitHub over HTTPS; the installer still verifies the downloaded wheel against the release's SHA-256 manifest.
+Omit `--with-tui` for the dependency-free CLI. The installer follows GitHub's `latest` release by default; append `--version v0.4.0` to pin this release. Set `PYTHON=/path/to/python3` when `/usr/bin/python3` is not the interpreter you want. This one-liner trusts the installer delivered by GitHub over HTTPS; the installer still verifies the downloaded wheel against the release's SHA-256 manifest.
 
 Each run builds a new environment under `~/.local/share/codex-socks-manager/venvs/`. A download, checksum, dependency, or preflight failure leaves the old entry points intact. Existing profiles, private bootstrap backups, and previous environments are retained. Keep `--with-tui` on upgrades; omitting it intentionally switches to a new CLI-only environment.
 

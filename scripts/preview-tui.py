@@ -65,7 +65,7 @@ async def render(args) -> None:
                 async with app.run_test(size=size) as pilot:
                     await pilot.pause()
                     pages = app.query_one(TabbedContent)
-                    for page in ("profiles", "diagnostics", "maintenance", "commands"):
+                    for page in ("profiles", "diagnostics", "scope", "maintenance", "commands"):
                         pages.active = page + "-page"
                         await pilot.pause()
                         await pilot.wait_for_scheduled_animations()

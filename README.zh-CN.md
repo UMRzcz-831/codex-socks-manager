@@ -37,7 +37,7 @@ Codex SOCKS Manager 把代理配置、Codex app-server 重启、双客户端启�
 curl -fsSL https://github.com/UMRzcz-831/codex-socks-manager/releases/latest/download/install.sh | sh -s -- --with-tui
 ```
 
-轻量版去掉 `--with-tui`。安装器默认跟随 GitHub `latest`；需要固定版本时在命令末尾添加 `--version v0.3.0`。`/usr/bin/python3` 不是目标解释器时，可设置 `PYTHON=/path/to/python3`。这一行命令通过 HTTPS 信任 GitHub 下发的安装器；安装器仍会根据 Release 中的 SHA-256 清单校验下载的 wheel。
+轻量版去掉 `--with-tui`。安装器默认跟随 GitHub `latest`；需要固定本次版本时在命令末尾添加 `--version v0.4.0`。`/usr/bin/python3` 不是目标解释器时，可设置 `PYTHON=/path/to/python3`。这一行命令通过 HTTPS 信任 GitHub 下发的安装器；安装器仍会根据 Release 中的 SHA-256 清单校验下载的 wheel。
 
 每次安装都会在 `~/.local/share/codex-socks-manager/venvs/` 新建环境。下载、校验、依赖安装或预检失败都不会改动旧入口；已有配置、私有 bootstrap 备份和旧环境会保留。完整版升级时继续带 `--with-tui`，不带选项会主动切换到新的轻量 CLI 环境。
 
@@ -122,7 +122,7 @@ codex-socks run --client claude -- --debug
 
 界面支持鼠标、Tab、方向键、Enter、Page Up 和 Page Down。快捷键为 `a` 新增、`e` 编辑、`r` 刷新、`l` 切换语言、`q` 退出、`F2` 查看完整操作结果。在输入框中打字时，字母快捷键不会触发。会重启进程或替换数据的操作都要确认；操作和回滚结束前会阻止重复提交与普通退出。
 
-[查看四个页面、两种语言和两种终端尺寸的截图](https://github.com/UMRzcz-831/codex-socks-manager/tree/main/docs/designs/tui-graphite/rendered)。这些截图由真实 Textual 应用配合一次性假配置生成，没有运行真实诊断或代理操作。
+[查看五个页面、两种语言和两种终端尺寸的截图](https://github.com/UMRzcz-831/codex-socks-manager/tree/main/docs/designs/tui-graphite/rendered)。这些截图由真实 Textual 应用配合一次性假配置生成，没有运行真实诊断或代理操作。
 
 ```bash
 codex-socks tui --lang zh-CN
