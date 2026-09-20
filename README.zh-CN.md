@@ -6,7 +6,7 @@
 
 [English](https://github.com/UMRzcz-831/codex-socks-manager/blob/main/README.md) · [简体中文](https://github.com/UMRzcz-831/codex-socks-manager/blob/main/README.zh-CN.md)
 
-Codex SOCKS Manager 把代理配置、app-server 重启、诊断和更新恢复收在一个 Linux 工具里。脚本可以使用零第三方运行依赖的 CLI；日常管理则可选装 Textual 界面。
+Codex SOCKS Manager 把代理配置、Codex app-server 重启、双客户端启动作用域、诊断和更新恢复收在一个 Linux 工具里。它可以用明确的代理环境启动 Codex CLI 或 Claude Code CLI。脚本可以使用零第三方运行依赖的 CLI；日常管理则可选装 Textual 界面。
 
 它解决的是代理传输问题，不能授予账号访问权、开放不支持的地区、修改 workspace 权限或绕过远端 ACL。slogan 是目标，不代表所有 403 都能修复。
 
@@ -19,14 +19,15 @@ Codex SOCKS Manager 把代理配置、app-server 重启、诊断和更新恢复�
 | 代理配置 | 保存具名的 `socks5h://`、`socks5://`、`http://` 和 `https://` 地址。 |
 | 应用与回滚 | 写入大小写代理环境变量，重启当前用户下匹配的 app-server，通过 Doctor 验收；失败时恢复之前的选择。 |
 | 诊断 | 汇总 HTTPS、WebSocket、app-server 和代理环境，不把结果误写成账号授权证明。 |
+| 客户端作用域 | 分别展示 Codex/Claude 的继承变量、受管启动值、目标绕过预测，以及尚未验证的 HTTP/WSS/MCP 覆盖。 |
 | 维护 | 安装或修复受管 launcher、创建快照、恢复代理层、迁移旧配置，并为 `codex update` 增加恢复路径。 |
-| 使用方式 | 提供 13 个双语 CLI 命令和选装的四页 Textual TUI；机器读取的 JSON 保持不变。 |
+| 使用方式 | 提供 17 个双语 CLI 命令和选装的五页 Textual TUI；机器报告带明确 schema。 |
 
 只在一个 shell 中使用时，`export ALL_PROXY=...` 已经够用。这个项目适合还要管理多个地址、处理 app-server 生命周期、验收切换结果，并在 Codex 更新后恢复代理层的场景。
 
 ## 安装
 
-环境要求：Linux、支持 venv/pip 的 Python 3.10+，以及已经安装的 Codex CLI。配置切换和 `check` 要求 Codex 支持 `doctor --json`；`safe-update` 还要求支持 `codex update`。
+环境要求：Linux、支持 venv/pip 的 Python 3.10+，以及已经安装的 Codex CLI。Claude 启动支持还要求 `PATH` 中能找到 `claude`。配置切换和 `check` 要求 Codex 支持 `doctor --json`；`safe-update` 还要求支持 `codex update`。
 
 ### GitHub Release 安装器
 
@@ -90,6 +91,21 @@ codex-socks add local socks5://127.0.0.1:1080
 
 应用配置会重启匹配的 app-server 角色，可能中断当前 Codex 会话。管理器不会启动原本不存在的 app-server。`off` 同样会验收；直连失败时恢复之前的选择。
 
+## Codex 与 Claude 启动作用域
+
+Claude 在选择 HTTP/HTTPS 配置之前默认使用 `inherit`。Claude Code 不支持 SOCKS，因此管理器会在启动前拒绝 SOCKS 配置。Codex 继续使用原有活动配置行为。
+
+```bash
+codex-socks policy set --client claude --mode profile --profile office
+codex-socks bypass add --client claude api.deepseek.example
+codex-socks scope --client claude --target https://api.deepseek.example --json
+codex-socks run --client claude -- --debug
+```
+
+`scope` 是只读命令，不初始化存储，也不联网。它分别标记模型 HTTP、WebSocket、远程 HTTP/WS MCP、本地 stdio MCP 和官方连接器。`configured_not_verified` 只表示启动环境中存在代理变量，不能证明客户端、MCP 实现、官方连接器或远端服务采用了该路径。本地 stdio MCP 通信本身使用管道，其服务器发出的网络请求可能继承或覆盖环境。官方/云端连接器还可能使用本地代理无法控制的服务商路径。
+
+`run` 会替换管理器进程，只影响新客户端及其后代，不修改父 shell、其他终端或已有会话。一次性的 `--profile`、`--inherit`、`--off` 会覆盖保存策略。`off` 只清除新进程的代理变量；客户端配置或系统透明网络仍可能提供其他路径。
+
 ## Textual 界面
 
 安装完整版后，在交互终端运行 `codex-socks`，或显式执行 `codex-socks tui`。
@@ -98,6 +114,7 @@ codex-socks add local socks5://127.0.0.1:1080
 | --- | --- |
 | 代理管理 | 新增、编辑、删除、应用或关闭代理。`>` 表示光标位置，`*` 表示活动配置；编辑只保存，不自动应用。 |
 | 诊断 | 按需运行 Doctor，查看 HTTPS、WSS、app-server 和代理环境；本地状态变化后，旧结果会标为过期。 |
+| 作用域 | 对比 Codex 或 Claude 的继承与启动变量，预测可选目标的绕过路径，并展示不冒充连通性的传输覆盖。 |
 | 维护 | 修复 launcher、创建备份、选择或手工填写恢复快照、安全更新、迁移旧配置。 |
 | 命令手册 | 筛选双语命令表，查看参数、示例和行为边界。 |
 
@@ -128,6 +145,10 @@ CODEX_SOCKS_LANG=zh-CN codex-socks
 | `del NAME [--force]` | 删除配置；活动配置要先切换 off 并通过验收。 | `codex-socks del office --force` |
 | `off` | 清除受管代理变量，重启匹配角色并验收直连。 | `codex-socks off` |
 | `check` | 以 JSON 输出 Doctor 汇总；异常时返回 1。 | `codex-socks check` |
+| `scope --client …` | 显示继承/启动变量和尚未验证的传输覆盖，可选预测目标路径。 | `codex-socks scope --client claude --json` |
+| `policy set --client …` | 保存受管启动策略。 | `codex-socks policy set --client claude --mode profile --profile office` |
+| `bypass {add,remove,list} --client …` | 管理每个客户端的 `NO_PROXY` 主机规则。 | `codex-socks bypass add --client claude api.deepseek.example` |
+| `run --client …` | 用指定作用域替换当前进程并启动 Codex 或 Claude。 | `codex-socks run --client claude` |
 | `install` | 发现 Codex，安装或修复受管 launcher。 | `codex-socks install` |
 | `backup` | 创建本地快照；存在 Codex 配置时一并备份。 | `codex-socks backup` |
 | `restore [SNAPSHOT]` | 恢复代理层；默认选择最新 known-good 快照。 | `codex-socks restore /path/to/snapshot` |
@@ -158,7 +179,7 @@ codex-socks restore
 
 `safe-update` 先创建代理层快照，再让已配置的真实 Codex 执行更新，随后修复 launcher、重启 app-server 并运行 Doctor。失败时会尝试恢复快照，并说明回滚是否成功。恢复会保留当前安装的 Codex 二进制版本，不会降级二进制。
 
-`restore` 会先创建 pre-restore 快照，再恢复管理器设置、profiles 和保存的 launcher，同时保留当前 Codex 二进制路径。选定快照中没有的 profile 会离开活动存储，但仍在 pre-restore 快照里。`backup` 会保存已有的 `~/.codex/config.toml`；`restore` 不会自动写回这份 Codex 配置。`known-good` 标签本身不代表已经运行健康检查。
+`restore` 会先创建 pre-restore 快照，再恢复管理器设置、客户端策略、profiles 和保存的 launcher，同时保留当前 Codex 二进制路径。选定快照中没有的 profile 会离开活动存储，但仍在 pre-restore 快照里。`backup` 会保存已有的 `~/.codex/config.toml`；`restore` 不会自动写回这份 Codex 配置。`known-good` 标签本身不代表已经运行健康检查。
 
 ## 存储与迁移
 

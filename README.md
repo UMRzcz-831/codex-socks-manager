@@ -6,7 +6,7 @@
 
 [English](https://github.com/UMRzcz-831/codex-socks-manager/blob/main/README.md) · [简体中文](https://github.com/UMRzcz-831/codex-socks-manager/blob/main/README.zh-CN.md)
 
-Codex SOCKS Manager keeps proxy profiles, app-server restarts, diagnostics, and update recovery in one Linux tool. Use the dependency-free CLI in scripts or install the optional Textual interface for day-to-day management.
+Codex SOCKS Manager keeps proxy profiles, Codex app-server restarts, dual-client launch scope, diagnostics, and update recovery in one Linux tool. It can launch Codex CLI or Claude Code CLI with an explicit proxy environment. Use the dependency-free CLI in scripts or install the optional Textual interface for day-to-day management.
 
 It fixes proxy transport problems. It cannot grant account access, enable an unsupported region, change workspace permissions, or bypass a remote ACL. The slogan is a goal, not a promise that every 403 is fixable.
 
@@ -19,14 +19,15 @@ It fixes proxy transport problems. It cannot grant account access, enable an uns
 | Profiles | Stores named `socks5h://`, `socks5://`, `http://`, and `https://` endpoints. |
 | Apply and rollback | Exports upper- and lowercase proxy variables, restarts matching current-user app-server roles, validates with Doctor, and restores the previous selection when validation fails. |
 | Diagnostics | Summarizes HTTPS, WebSocket, app-server, and proxy-environment checks without treating them as proof of account authorization. |
+| Client scope | Separates inherited variables, managed launch values, target bypass prediction, and unverified HTTP/WSS/MCP coverage for Codex and Claude. |
 | Maintenance | Installs or repairs the managed launcher, creates snapshots, restores the proxy layer, migrates old profiles, and protects `codex update` with recovery. |
-| Interfaces | Provides 13 bilingual CLI commands plus an optional four-page Textual TUI. Machine-readable JSON stays unchanged. |
+| Interfaces | Provides 17 bilingual CLI commands plus an optional five-page Textual TUI. Machine-readable reports have explicit schemas. |
 
 An ordinary `export ALL_PROXY=...` is fine for one shell. This project is for setups that also need named endpoints, app-server lifecycle handling, validation, and a recovery path after Codex updates.
 
 ## Install
 
-Requirements: Linux, Python 3.10+ with venv/pip support, and an existing Codex CLI installation. Profile switching and `check` require a Codex version with `doctor --json`; `safe-update` also requires `codex update`.
+Requirements: Linux, Python 3.10+ with venv/pip support, and an existing Codex CLI installation. Claude launch support additionally requires `claude` on `PATH`. Profile switching and `check` require a Codex version with `doctor --json`; `safe-update` also requires `codex update`.
 
 ### GitHub Release installer
 
@@ -90,6 +91,21 @@ Command-line URLs may remain in shell history or process arguments. `list` masks
 
 Applying a profile restarts matching app-server roles and can interrupt the current Codex session. The manager does not start an app-server that was not already running. `off` also validates; if direct connectivity fails, it restores the previous selection.
 
+## Codex and Claude launch scope
+
+Claude starts in `inherit` mode until you select an HTTP/HTTPS profile. Claude Code does not support SOCKS proxies, so the manager rejects a SOCKS profile before launch. Codex keeps the existing active-profile behavior.
+
+```bash
+codex-socks policy set --client claude --mode profile --profile office
+codex-socks bypass add --client claude api.deepseek.example
+codex-socks scope --client claude --target https://api.deepseek.example --json
+codex-socks run --client claude -- --debug
+```
+
+`scope` is read-only and does not initialize storage or test the network. It labels model HTTP, WebSocket, remote HTTP/WS MCP, local stdio MCP, and official connectors separately. `configured_not_verified` means the launch environment contains proxy variables; it does not prove the client, MCP implementation, official connector, or remote service used that route. Local stdio MCP communication itself uses pipes, while network calls made by that server may inherit or override the environment. Official/cloud connectors can use provider-managed paths outside the local proxy.
+
+`run` replaces the manager process and affects only the new client process and descendants. It does not modify the parent shell, other terminals, or existing sessions. One-time `--profile`, `--inherit`, and `--off` options override the saved policy. `off` removes proxy variables from the new process; client settings or transparent system networking may still supply another route.
+
 ## Textual interface
 
 Run `codex-socks` in an interactive terminal after installing the TUI edition, or use `codex-socks tui` explicitly.
@@ -98,6 +114,7 @@ Run `codex-socks` in an interactive terminal after installing the TUI edition, o
 | --- | --- |
 | Profiles | Add, edit, delete, apply, or turn off a profile. `>` marks the cursor; `*` marks the active selection. Editing saves without applying. |
 | Diagnostics | Run Doctor on demand and inspect HTTPS, WSS, app-server, and proxy-environment results. Old results are marked stale after local changes. |
+| Scope | Compare inherited and launch variables for Codex or Claude, predict an optional target's bypass path, and inspect transport coverage without claiming connectivity. |
 | Maintenance | Repair the launcher, create a backup, select or enter a restore snapshot, run a safe update, or migrate legacy files. |
 | Commands | Filter the bilingual command table and read parameters, examples, and behavior notes. |
 
@@ -128,6 +145,10 @@ Without Textual and Rich, a bare interactive invocation prints help and returns 
 | `del NAME [--force]` | Delete a profile; an active profile requires a validated switch to off. | `codex-socks del office --force` |
 | `off` | Clear managed proxy variables, restart matching roles, and validate direct access. | `codex-socks off` |
 | `check` | Print the Doctor summary as JSON; return 1 when unhealthy. | `codex-socks check` |
+| `scope --client …` | Show inherited/launch variables and unverified transport coverage; optionally predict a target route. | `codex-socks scope --client claude --json` |
+| `policy set --client …` | Save a managed launch policy. | `codex-socks policy set --client claude --mode profile --profile office` |
+| `bypass {add,remove,list} --client …` | Manage per-client `NO_PROXY` host rules. | `codex-socks bypass add --client claude api.deepseek.example` |
+| `run --client …` | Replace the current process with a scoped Codex or Claude CLI. | `codex-socks run --client claude` |
 | `install` | Find Codex and install or repair the managed launcher. | `codex-socks install` |
 | `backup` | Create a local snapshot, including Codex configuration when present. | `codex-socks backup` |
 | `restore [SNAPSHOT]` | Restore the proxy layer; default to the latest known-good snapshot. | `codex-socks restore /path/to/snapshot` |
@@ -158,7 +179,7 @@ codex-socks restore
 
 `safe-update` takes a proxy-layer snapshot, asks the configured real Codex executable to update, repairs the launcher, restarts app-server, and runs Doctor. On failure it attempts snapshot recovery and reports whether rollback succeeded. Recovery keeps the installed Codex binary version; it does not downgrade the binary.
 
-`restore` first creates a pre-restore snapshot. It restores manager settings, profiles, and the saved launcher while retaining the current Codex binary path. Profiles absent from the selected snapshot leave active storage but remain in the pre-restore snapshot. `backup` saves `~/.codex/config.toml` when present; `restore` does not write that Codex configuration back automatically. A `known-good` label does not itself run a health check.
+`restore` first creates a pre-restore snapshot. It restores manager settings, client policies, profiles, and the saved launcher while retaining the current Codex binary path. Profiles absent from the selected snapshot leave active storage but remain in the pre-restore snapshot. `backup` saves `~/.codex/config.toml` when present; `restore` does not write that Codex configuration back automatically. A `known-good` label does not itself run a health check.
 
 ## Storage and migration
 

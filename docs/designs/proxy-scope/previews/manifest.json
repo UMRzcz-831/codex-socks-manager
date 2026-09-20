@@ -1,0 +1,36 @@
+[
+  {
+    "size": [
+      120,
+      36
+    ],
+    "wide_ratio": 0.6495726495726496,
+    "scenario_checks": "passed",
+    "client_rules_isolated": true,
+    "resize": "passed",
+    "keyboard": "passed",
+    "real_configuration": "not read",
+    "network": "not used"
+  },
+  {
+    "size": [
+      80,
+      24
+    ],
+    "wide_ratio": null,
+    "scenario_checks": "passed",
+    "client_rules_isolated": true,
+    "resize": "passed",
+    "keyboard": "passed",
+    "real_configuration": "not read",
+    "network": "not used"
+  },
+  {
+    "size": [
+      80,
+      24
+    ],
+    "no_color": true,
+    "toggle": "passed"
+  }
+]
