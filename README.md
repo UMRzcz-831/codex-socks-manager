@@ -89,7 +89,7 @@ codex-socks add local socks5://127.0.0.1:1080
 
 Command-line URLs may remain in shell history or process arguments. `list` masks usernames and passwords but still prints hosts and ports. Review its output before sharing it.
 
-Applying a profile restarts matching app-server roles and can interrupt the current Codex session. The manager does not start an app-server that was not already running. `off` also validates; if direct connectivity fails, it restores the previous selection.
+Applying a profile restarts matching app-server roles and can interrupt the current Codex session. Matching uses the running executable as well as its arguments, so it handles Codex's bare `codex` process name and older standalone releases still running from the same installation after an upgrade. The manager does not start an app-server that was not already running. `off` also validates; if direct connectivity fails, it restores the previous selection.
 
 ## Codex and Claude launch scope
 

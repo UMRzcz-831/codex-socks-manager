@@ -109,6 +109,64 @@ def test_appserver_discovery_matches_uid_real_binary_only(manager_paths, tmp_pat
     assert [process.pid for process in found] == [101]
 
 
+def fake_process(proc: Path, pid: str, argv: list[str], exe: Path, environ: bytes = b"PATH=\0") -> Path:
+    entry = proc / pid
+    entry.mkdir(parents=True)
+    (entry / "cmdline").write_bytes(b"".join(part.encode() + b"\0" for part in argv))
+    (entry / "exe").symlink_to(exe)
+    (entry / "environ").write_bytes(environ)
+    return entry
+
+
+def test_appserver_discovery_resolves_bare_argv_from_proc_exe(manager_paths, tmp_path):
+    """Codex re-execs itself as a bare ``codex``, so argv[0] is not a filesystem path."""
+    initialize(manager_paths)
+    release = executable(tmp_path / "standalone/releases/0.156.1/bin/codex")
+    atomic_write(manager_paths.settings, Settings(real_codex=str(release)).dump())
+    proc = tmp_path / "proc"
+    fake_process(proc, "101", ["codex", "app-server", "proxy"], release)
+    found = discover_appservers(manager_paths, proc_root=proc, uid=os.getuid())
+    assert [process.pid for process in found] == [101]
+
+
+def test_appserver_discovery_accepts_earlier_release_of_same_install(manager_paths, tmp_path):
+    """An upgrade leaves the previous release running until the manager restarts it."""
+    initialize(manager_paths)
+    installed = executable(tmp_path / "standalone/releases/0.156.1/bin/codex")
+    running = executable(tmp_path / "standalone/releases/0.155.1/bin/codex")
+    atomic_write(manager_paths.settings, Settings(real_codex=str(installed)).dump())
+    proc = tmp_path / "proc"
+    fake_process(proc, "101", ["codex", "app-server"], running)
+    found = discover_appservers(manager_paths, proc_root=proc, uid=os.getuid())
+    assert [process.pid for process in found] == [101]
+
+
+def test_appserver_discovery_accepts_managed_launcher_and_script_argv(manager_paths, tmp_path):
+    initialize(manager_paths)
+    installed = executable(tmp_path / "standalone/releases/0.156.1/bin/codex")
+    atomic_write(manager_paths.settings, Settings(real_codex=str(installed)).dump())
+    executable(manager_paths.launcher)
+    proc = tmp_path / "proc"
+    fake_process(proc, "101", [str(manager_paths.launcher), "app-server"], Path("/usr/bin/sh"))
+    script = executable(tmp_path / "node_modules/@openai/codex/bin/codex")
+    atomic_write(manager_paths.settings, Settings(real_codex=str(script)).dump())
+    fake_process(proc, "102", ["node", str(script), "app-server"], Path("/usr/bin/node"))
+    found = discover_appservers(manager_paths, proc_root=proc, uid=os.getuid())
+    assert [process.pid for process in found] == [101, 102]
+
+
+def test_appserver_discovery_rejects_foreign_and_unknown_processes(manager_paths, tmp_path):
+    initialize(manager_paths)
+    installed = executable(tmp_path / "standalone/releases/0.156.1/bin/codex")
+    foreign = executable(tmp_path / "elsewhere/releases/0.156.1/bin/codex")
+    atomic_write(manager_paths.settings, Settings(real_codex=str(installed)).dump())
+    proc = tmp_path / "proc"
+    fake_process(proc, "101", ["codex", "app-server"], foreign)
+    fake_process(proc, "102", ["/usr/bin/python", "app-server"], Path("/usr/bin/python"))
+    fake_process(proc, "103", ["codex", "app-server"], Path("/bin/codex"))
+    assert discover_appservers(manager_paths, proc_root=proc, uid=os.getuid()) == []
+
+
 def test_switch_failure_rolls_back_profile_and_roles(manager_paths, monkeypatch):
     store = ProfileStore(manager_paths)
     store.add("jp", "http://proxy.test:8080")

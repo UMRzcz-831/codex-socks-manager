@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import shutil
 import signal
 import subprocess
 import time
@@ -18,10 +19,66 @@ class AppServerProcess:
     argv: tuple[str, ...]
 
 
+def release_root(executable: Path) -> Path | None:
+    """Standalone releases root shared by every installed Codex version."""
+    parents = executable.parents
+    if executable.parent.name != "bin" or len(parents) < 3:
+        return None
+    root = parents[2]
+    return root if root.name == "releases" else None
+
+
+def same_install(candidate: Path, expected: set[Path]) -> bool:
+    """Match the configured Codex, the launcher, or another version of the same install."""
+    if candidate in expected:
+        return True
+    root = release_root(candidate)
+    return root is not None and any(root == release_root(item) for item in expected)
+
+
+def process_search_path(entry: Path) -> str | None:
+    try:
+        environ = (entry / "environ").read_bytes()
+    except OSError:
+        return os.environ.get("PATH")
+    for item in environ.split(b"\0"):
+        name, separator, value = item.decode("utf-8", "replace").partition("=")
+        if separator and name == "PATH":
+            return value
+    return os.environ.get("PATH")
+
+
+def process_identities(entry: Path, argv: tuple[str, ...]) -> list[Path]:
+    """Paths identifying a live process, preferring /proc/<pid>/exe over argv[0].
+
+    Codex re-execs itself with a bare ``codex`` argv[0], so argv alone cannot be
+    resolved against the filesystem.
+    """
+    likely: list[Path] = []
+    try:
+        target = os.readlink(entry / "exe").removesuffix(" (deleted)")
+    except OSError:
+        target = ""
+    if target:
+        likely.append(Path(target))
+    search_path = process_search_path(entry)
+    for argument in argv[:2]:
+        if not argument or argument.startswith("-"):
+            continue
+        if os.sep in argument:
+            likely.append(Path(argument))
+            continue
+        found = shutil.which(argument, path=search_path)
+        if found:
+            likely.append(Path(found))
+    return [candidate.resolve(strict=False) for candidate in likely]
+
+
 def discover_appservers(paths: Paths, proc_root: Path = Path("/proc"), uid: int | None = None) -> list[AppServerProcess]:
     expected_uid = os.getuid() if uid is None else uid
     settings = Settings.load(paths.settings)
     real = Path(settings.real_codex).resolve(strict=False) if settings.real_codex else None
+    expected = {real, paths.launcher.resolve(strict=False)} if real is not None else set()
     result: list[AppServerProcess] = []
     for entry in proc_root.iterdir():
         if not entry.name.isdigit():
@@ -33,8 +90,7 @@ def discover_appservers(paths: Paths, proc_root: Path = Path("/proc"), uid: int 
             argv = tuple(part.decode("utf-8", "replace") for part in raw.split(b"\0") if part)
             if not argv or "app-server" not in argv:
                 continue
-            executable = Path(argv[0]).resolve(strict=False)
-            if real is not None and executable != real and executable != paths.launcher.resolve(strict=False):
+            if expected and not any(same_install(candidate, expected) for candidate in process_identities(entry, argv)):
                 continue
             result.append(AppServerProcess(int(entry.name), argv))
         except (FileNotFoundError, PermissionError, ProcessLookupError, OSError):

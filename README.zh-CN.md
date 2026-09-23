@@ -89,7 +89,7 @@ codex-socks add local socks5://127.0.0.1:1080
 
 命令行里的 URL 可能留在 shell history 或进程参数中。`list` 会隐藏用户名和密码，但仍会显示主机与端口，分享前要检查输出。
 
-应用配置会重启匹配的 app-server 角色，可能中断当前 Codex 会话。管理器不会启动原本不存在的 app-server。`off` 同样会验收；直连失败时恢复之前的选择。
+应用配置会重启匹配的 app-server 角色，可能中断当前 Codex 会话。匹配时会检查运行中的可执行文件和进程参数，因此能识别进程名仅为 `codex` 的情况，也能处理升级后仍在同一安装目录下运行的旧 standalone 版本。管理器不会启动原本不存在的 app-server。`off` 同样会验收；直连失败时恢复之前的选择。
 
 ## Codex 与 Claude 启动作用域
 
